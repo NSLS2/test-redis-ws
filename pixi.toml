@@ -11,3 +11,4 @@ serve = "python server.py"
 [dependencies]
 redis-py = "*"
 fastapi = "*"
+numpy = "*"
