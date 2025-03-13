@@ -4,11 +4,13 @@ import numpy as np
 
 redis_client = redis.from_url("redis://localhost:6379/0")
 
+
 node_id = 42
 redis_client.setnx(f"seq_num:{node_id}", 0)
 
 for _ in range(10):
     seq_num = redis_client.incr(f"seq_num:{node_id}")
+    pipeline = redis_client.pipeline()
     metadata = {
         "timestamp": "2021-01-01T00:00:00",
         "source": "sensor_1",
@@ -16,13 +18,17 @@ for _ in range(10):
     }
     binary_data = (np.ones(5) * seq_num).tobytes()
 
-    redis_client.hset(
+    pipeline.hset(
         f"data:{node_id}:{seq_num}",
         mapping={
             "metadata": json.dumps(metadata).encode("utf-8"),
             "payload": binary_data,  # Raw binary bytes
         },
     )
+
+    pipeline.publish(f"notify:{node_id}", seq_num)
+
+    pipeline.execute()
 
     print(
         np.frombuffer(
