@@ -2,7 +2,7 @@
 authors = ["Hiran Wijesinghe <wwijesing1@bnl.gov>"]
 channels = ["conda-forge"]
 name = "test-redis-ws"
-platforms = ["osx-arm64"]
+platforms = ["linux-64", "osx-arm64"]
 version = "0.1.0"
 
 [tasks]
@@ -12,3 +12,8 @@ serve = "python server.py"
 redis-py = "*"
 fastapi = "*"
 numpy = "*"
+pydantic-settings = "*"
+pydantic = "*"
+httpx = "*"
+uvicorn = "*"
+msgpack-python = "*"
