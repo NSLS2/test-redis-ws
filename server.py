@@ -2,10 +2,10 @@ import redis
 import json
 import numpy as np
 import uvicorn
-import msgpack
 from pydantic_settings import BaseSettings
 from fastapi import FastAPI, WebSocket, Request
 from pydantic import BaseModel
+from datetime import datetime
 
 
 class Settings(BaseSettings):
@@ -46,10 +46,12 @@ def build_app(settings: Settings):
         "Append data to a dataset."
 
         # get data from request body
-        raw_body = await request.body()
-        data = msgpack.unpackb(raw_body)
-        metadata = data["metadata"]
-        binary_data = data["payload"]
+        binary_data = await request.body()
+        headers = request.headers
+        metadata = {
+            "timestamp": datetime.now().isoformat(),
+        }
+        metadata.setdefault("Content-Type", headers.get("Content-Type"))
 
         # Increment the counter for this node.
         seq_num = redis_client.incr(f"seq_num:{node_id}")
@@ -67,6 +69,12 @@ def build_app(settings: Settings):
         pipeline.expire(f"data:{node_id}:{seq_num}", settings.ttl)
         pipeline.publish(f"notify:{node_id}", seq_num)
         pipeline.execute()
+        print(
+            np.frombuffer(
+                redis_client.hget(f"data:{node_id}:{seq_num}", "payload"),
+                dtype=np.float64,
+            )
+        )
 
     # TODO: Implement two-way communication with subscribe, unsubscribe, flow control.
     #   @app.websocket("/stream/many")
@@ -77,6 +85,62 @@ def build_app(settings: Settings):
         while True:
             data = await websocket.receive_text()
             await websocket.send_text(f"Message text was: {data}")
+
+    @app.get("/stream/live")
+    async def list_live_streams():
+        nodes = redis_client.keys("seq_num:*")
+        return [node.decode("utf-8").split(":")[1] for node in nodes]
+
+    # @app.websocket("/stream/{path:path}/{uid}")
+    # async def websocket_endpoint(
+    #     path: str, uid: str, websocket: WebSocket, cursor: int | None = None
+    # ):
+    #     """
+    #     WebSocket endpoint to stream dataset records to the client.
+
+    #     Parameters
+    #     ----------
+    #     uid : str
+    #         unique indentifier for the dataset.
+    #     path : str
+    #         catalog path.
+    #     websocket : WebSocket
+    #         WebSocket connection instance.
+    #     cursor : int, optional
+    #         Starting position in the dataset (default is 0).
+    #     """
+
+    #     # How do you know when a dataset is completed?
+    #     subprotocols = ["v1"]
+    #     mimetypes = ["*/*", "application/json"]
+    #     mimetype, subprotocol = await websocket_accept(
+    #         websocket, mimetypes, subprotocols
+    #     )
+
+    #     while True:
+    #         async with app.pool.acquire() as connection:
+    #             result = await connection.fetchrow(
+    #                 f"SELECT * FROM datasets WHERE uid='{uid}' AND path='{path}' LIMIT 1;"
+    #             )
+    #             if result is not None:
+    #                 path, uid, data, length = result
+    #                 if cursor is None:
+    #                     cursor = length
+    #                 print(f"server {path = }, {data = }")
+    #                 while cursor < length:
+    #                     if mimetype == "application/json":
+    #                         await websocket.send_json({"record": data[cursor]})
+    #                     elif mimetype == "application/octet-stream":
+    #                         await websocket.send_bytes(np.array(data[cursor]).tobytes())
+    #                     elif mimetype == "image/tiff":
+    #                         with open(f"image.tiff", "rb") as tiff:
+    #                             await websocket.send_bytes(tiff.read())
+    #                     else:
+    #                         raise WebSocketException(
+    #                             f"Invalid subprotocol: {subprotocols}"
+    #                         )
+    #                     cursor += 1
+    #             await asyncio.sleep(1)
 
     return app
 
