@@ -1,11 +1,12 @@
-import redis
+import redis.asyncio as redis
 import json
 import numpy as np
 import uvicorn
 from pydantic_settings import BaseSettings
-from fastapi import FastAPI, WebSocket, Request
+from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect
 from pydantic import BaseModel
 from datetime import datetime
+import msgpack
 
 
 class Settings(BaseSettings):
@@ -20,8 +21,6 @@ class Settings(BaseSettings):
 
 def build_app(settings: Settings):
     redis_client = redis.from_url(settings.redis_url)
-
-    node_id = 42
 
     app = FastAPI()
 
@@ -54,11 +53,12 @@ def build_app(settings: Settings):
         metadata.setdefault("Content-Type", headers.get("Content-Type"))
 
         # Increment the counter for this node.
-        seq_num = redis_client.incr(f"seq_num:{node_id}")
+        seq_num = await redis_client.incr(f"seq_num:{node_id}")
 
         # Cache data in Redis with a TTL, and publish
         # a notification about it.
         pipeline = redis_client.pipeline()
+        print(f"Setting pipeline metadata: {json.dumps(metadata).encode("utf-8")}")
         pipeline.hset(
             f"data:{node_id}:{seq_num}",
             mapping={
@@ -68,27 +68,54 @@ def build_app(settings: Settings):
         )
         pipeline.expire(f"data:{node_id}:{seq_num}", settings.ttl)
         pipeline.publish(f"notify:{node_id}", seq_num)
-        pipeline.execute()
-        print(
-            np.frombuffer(
-                redis_client.hget(f"data:{node_id}:{seq_num}", "payload"),
-                dtype=np.float64,
-            )
-        )
+        await pipeline.execute()
+        # print(
+        #     np.frombuffer(
+        #         await redis_client.hget(f"data:{node_id}:{seq_num}", "payload"),
+        #         dtype=np.float64,
+        #     )
+        # )
 
     # TODO: Implement two-way communication with subscribe, unsubscribe, flow control.
     #   @app.websocket("/stream/many")
 
-    @app.websocket("/stream/one/{node_id}")  # one-way communcation
-    async def websocket_endpoint(websocket: WebSocket):
+    @app.websocket("/stream/single/{node_id}")  # one-way communcation
+    async def websocket_endpoint(websocket: WebSocket, node_id: str, envelope_format: str = "json"):
         await websocket.accept()
-        while True:
-            data = await websocket.receive_text()
-            await websocket.send_text(f"Message text was: {data}")
+        print(f"Subscribing to node {node_id}")
+        pubsub = redis_client.pubsub()
+        await pubsub.subscribe(f"notify:{node_id}")
+        try:
+            async for message in pubsub.listen():
+                print(f"Message {message}")
+                if message is None:
+                    continue
+                if message["type"] == "message":
+                    seq_num = int(message["data"])
+
+                    metadata = await redis_client.hget(f"data:{node_id}:{seq_num}", "metadata")
+                    payload = await redis_client.hget(f"data:{node_id}:{seq_num}", "payload")
+                    data = { "sequence": seq_num,
+                              "metadata": metadata.decode('utf-8'),
+                              "payload": np.frombuffer(payload, dtype=np.float64).tolist()
+                            }
+                    if envelope_format == "msgpack":
+                        data = msgpack.packb(data)
+                        await websocket.send_bytes(data)
+                    else:
+                        await websocket.send_text(json.dumps(data))
+
+
+        except WebSocketDisconnect:
+            print(f"Client disconnected from node {node_id}")
+        finally:
+            await pubsub.unsubscribe(f"notify:{node_id}")
+            await pubsub.aclose()
+        
 
     @app.get("/stream/live")
     async def list_live_streams():
-        nodes = redis_client.keys("seq_num:*")
+        nodes = await redis_client.keys("seq_num:*")
         return [node.decode("utf-8").split(":")[1] for node in nodes]
 
     # @app.websocket("/stream/{path:path}/{uid}")

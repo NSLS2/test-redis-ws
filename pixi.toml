@@ -19,3 +19,6 @@ pydantic = "*"
 httpx = "*"
 uvicorn = "*"
 httpx-ws = "*"
+
+[pypi-dependencies]
+msgpack = "*"  

@@ -7,8 +7,9 @@ client = httpx.Client(base_url="http://localhost:8000")
 
 def main():
     for _ in range(3):
-        content = client.post("/upload").raise_for_status().json()
-        node_id = content["node_id"]
+        #content = client.post("/upload").raise_for_status().json()
+        #node_id = content["node_id"]
+        node_id = 481980
         for i in range(10):
             time.sleep(0.5)
             binary_data = (np.ones(5) * i).tobytes()
