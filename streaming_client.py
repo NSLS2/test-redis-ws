@@ -33,7 +33,7 @@ async def get_live():
     return result.json()
 
 async def stream_node(node_id: str, envelope_format="json"):
-    websocket_url = f"ws://localhost:8000/stream/single/{node_id}?envelope_format={envelope_format}"
+    websocket_url = f"ws://localhost:8000/stream/single/{node_id}?envelope_format={envelope_format}&seq_num=1"
 
     async with websockets.connect(websocket_url) as websocket:
         print(f"Connected to {websocket_url}")

@@ -7,7 +7,8 @@ from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect
 from pydantic import BaseModel
 from datetime import datetime
 import msgpack
-
+import asyncio
+from typing import Optional
 
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
@@ -80,38 +81,63 @@ def build_app(settings: Settings):
     #   @app.websocket("/stream/many")
 
     @app.websocket("/stream/single/{node_id}")  # one-way communcation
-    async def websocket_endpoint(websocket: WebSocket, node_id: str, envelope_format: str = "json"):
+    async def websocket_endpoint(websocket: WebSocket, 
+                                 node_id: str, 
+                                 envelope_format: str = "json", 
+                                 seq_num: Optional[int] = None):
         await websocket.accept()
-        print(f"Subscribing to node {node_id}")
-        pubsub = redis_client.pubsub()
-        await pubsub.subscribe(f"notify:{node_id}")
+        
+        async def stream_data(seq_num):
+            key = f"data:{node_id}:{seq_num}"
+            payload, metadata = await redis_client.hmget(key, "payload", "metadata")
+            if payload is None and metadata is None:
+                return
+            data = { "sequence": seq_num,
+                      "metadata": metadata.decode('utf-8'),
+                      "payload": np.frombuffer(payload, dtype=np.float64).tolist()
+                    }
+            if envelope_format == "msgpack":
+                data = msgpack.packb(data)
+                await websocket.send_bytes(data)
+            else:
+                await websocket.send_text(json.dumps(data))
+
+        # Setup buffer
+        stream_buffer = asyncio.Queue()
+        async def buffer_live_events():
+            pubsub = redis_client.pubsub()
+            await pubsub.subscribe(f"notify:{node_id}")
+            try:
+                async for message in pubsub.listen():
+                    if message.get("type") == "message":
+                        try:
+                            live_seq = int(message["data"])
+                            await stream_buffer.put(live_seq)
+                        except Exception as e:
+                            print(f"Error parsing live message: {e}")
+            except Exception as e:
+                print(f"Live subscription error: {e}")
+            finally:
+                await pubsub.unsubscribe(f"notify:{node_id}")
+                await pubsub.aclose()
+        live_task = asyncio.create_task(buffer_live_events())
+
+        if seq_num is not None:
+            current_seq = await redis_client.get(f"seq_num:{node_id}")
+            current_seq = int(current_seq) if current_seq is not None else 0
+            print("Replaying old data...")
+            for s in range(seq_num, current_seq + 1):
+                await stream_data(s)
+        
+        # New data
         try:
-            async for message in pubsub.listen():
-                print(f"Message {message}")
-                if message is None:
-                    continue
-                if message["type"] == "message":
-                    seq_num = int(message["data"])
-
-                    metadata = await redis_client.hget(f"data:{node_id}:{seq_num}", "metadata")
-                    payload = await redis_client.hget(f"data:{node_id}:{seq_num}", "payload")
-                    data = { "sequence": seq_num,
-                              "metadata": metadata.decode('utf-8'),
-                              "payload": np.frombuffer(payload, dtype=np.float64).tolist()
-                            }
-                    if envelope_format == "msgpack":
-                        data = msgpack.packb(data)
-                        await websocket.send_bytes(data)
-                    else:
-                        await websocket.send_text(json.dumps(data))
-
-
+            while True:
+                live_seq = await stream_buffer.get()
+                await stream_data(live_seq)
         except WebSocketDisconnect:
             print(f"Client disconnected from node {node_id}")
         finally:
-            await pubsub.unsubscribe(f"notify:{node_id}")
-            await pubsub.aclose()
-        
+            live_task.cancel()
 
     @app.get("/stream/live")
     async def list_live_streams():
