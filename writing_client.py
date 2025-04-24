@@ -1,6 +1,7 @@
 import numpy as np
 import httpx
 import time
+import sys
 
 client = httpx.Client(base_url="http://localhost:8000")
 
@@ -19,6 +20,8 @@ def main():
                 headers={"Content-Type": "application/octet-stream"},
             ).raise_for_status()
         client.delete(f"/upload/{node_id}").raise_for_status()
-
+    if '--close' in sys.argv:
+        print("Closing stream")
+        client.post(f"/close/{node_id}", json={"reason": "Experiment complete"})
 
 main()
