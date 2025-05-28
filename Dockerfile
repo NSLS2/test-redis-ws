@@ -12,7 +12,7 @@ RUN pixi install
 COPY server.py .
 COPY redis/ ./redis/
 
-# Expose the default FastAPI port
+# Expose the streaming API port
 EXPOSE 8000
 
 # Run the application using pixi
