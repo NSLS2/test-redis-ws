@@ -1,27 +1,21 @@
-import redis
+import redis.asyncio as redis
 import json
 import numpy as np
 import uvicorn
 from pydantic_settings import BaseSettings
-from fastapi import FastAPI, WebSocket, Request
+from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect
 from pydantic import BaseModel
 from datetime import datetime
-
+import msgpack
+import asyncio
+from typing import Optional
 
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     ttl: int = 60 * 60  # 1 hour
 
-
-# class Data(BaseModel):
-#     metadata: dict
-#     payload: bytes
-
-
 def build_app(settings: Settings):
     redis_client = redis.from_url(settings.redis_url)
-
-    node_id = 42
 
     app = FastAPI()
 
@@ -54,11 +48,12 @@ def build_app(settings: Settings):
         metadata.setdefault("Content-Type", headers.get("Content-Type"))
 
         # Increment the counter for this node.
-        seq_num = redis_client.incr(f"seq_num:{node_id}")
+        seq_num = await redis_client.incr(f"seq_num:{node_id}")
 
         # Cache data in Redis with a TTL, and publish
         # a notification about it.
         pipeline = redis_client.pipeline()
+        print(f"Setting pipeline metadata: {json.dumps(metadata).encode("utf-8")}")
         pipeline.hset(
             f"data:{node_id}:{seq_num}",
             mapping={
@@ -68,79 +63,119 @@ def build_app(settings: Settings):
         )
         pipeline.expire(f"data:{node_id}:{seq_num}", settings.ttl)
         pipeline.publish(f"notify:{node_id}", seq_num)
-        pipeline.execute()
-        print(
-            np.frombuffer(
-                redis_client.hget(f"data:{node_id}:{seq_num}", "payload"),
-                dtype=np.float64,
-            )
-        )
+        await pipeline.execute()
 
     # TODO: Implement two-way communication with subscribe, unsubscribe, flow control.
     #   @app.websocket("/stream/many")
 
-    @app.websocket("/stream/one/{node_id}")  # one-way communcation
-    async def websocket_endpoint(websocket: WebSocket):
+    @app.post("/close/{node_id}")
+    async def close_connection(node_id: str, request: Request):
+        # Parse the JSON body
+        body = await request.json()
+        headers = request.headers
+    
+        reason = body.get("reason", None)
+    
+        metadata = {
+            "timestamp": datetime.now().isoformat(),
+            "reason": reason
+        }
+        metadata.setdefault("Content-Type", headers.get("Content-Type"))
+        # Increment the counter for this node.
+        seq_num = await redis_client.incr(f"seq_num:{node_id}")
+
+        # Cache data in Redis with a TTL, and publish
+        # a notification about it.
+        pipeline = redis_client.pipeline()
+        print(f"Setting pipeline metadata: {json.dumps(metadata).encode("utf-8")}")
+        pipeline.hset(
+            f"data:{node_id}:{seq_num}",
+            mapping={
+                "metadata": json.dumps(metadata).encode("utf-8"),
+                "payload": json.dumps(None).encode("utf-8"),
+            },
+        )
+        pipeline.expire(f"data:{node_id}:{seq_num}", settings.ttl)
+        pipeline.publish(f"notify:{node_id}", seq_num)
+        await pipeline.execute()
+
+        return {
+            "status": f"Connection for node {node_id} is now closed.",
+            "reason": reason
+        }
+    
+
+    @app.websocket("/stream/single/{node_id}")  # one-way communcation
+    async def websocket_endpoint(websocket: WebSocket, 
+                                 node_id: str, 
+                                 envelope_format: str = "json", 
+                                 seq_num: Optional[int] = None):
         await websocket.accept()
-        while True:
-            data = await websocket.receive_text()
-            await websocket.send_text(f"Message text was: {data}")
+        end_stream = asyncio.Event()
+        async def stream_data(seq_num):
+            key = f"data:{node_id}:{seq_num}"
+            payload, metadata = await redis_client.hmget(key, "payload", "metadata")
+            if payload is None and metadata is None:
+                return
+            try:
+                payload = np.frombuffer(payload, dtype=np.float64).tolist()
+            except Exception as e:
+                payload = json.loads(payload)
+            data = { "sequence": seq_num,
+                      "metadata": metadata.decode('utf-8'),
+                      "payload": payload 
+                    }
+            if envelope_format == "msgpack":
+                data = msgpack.packb(data)
+                await websocket.send_bytes(data)
+            else:
+                await websocket.send_text(json.dumps(data))
+            if payload is None and metadata is not None:
+                # This means that the stream is closed by the producer
+                end_stream.set()
+
+        # Setup buffer
+        stream_buffer = asyncio.Queue()
+        async def buffer_live_events():
+            pubsub = redis_client.pubsub()
+            await pubsub.subscribe(f"notify:{node_id}")
+            try:
+                async for message in pubsub.listen():
+                    if message.get("type") == "message":
+                        try:
+                            live_seq = int(message["data"])
+                            await stream_buffer.put(live_seq)
+                        except Exception as e:
+                            print(f"Error parsing live message: {e}")
+            except Exception as e:
+                print(f"Live subscription error: {e}")
+            finally:
+                await pubsub.unsubscribe(f"notify:{node_id}")
+                await pubsub.aclose()
+        live_task = asyncio.create_task(buffer_live_events())
+
+        if seq_num is not None:
+            current_seq = await redis_client.get(f"seq_num:{node_id}")
+            current_seq = int(current_seq) if current_seq is not None else 0
+            print("Replaying old data...")
+            for s in range(seq_num, current_seq + 1):
+                await stream_data(s)
+        # New data
+        try:
+            while not end_stream.is_set():
+                live_seq = await stream_buffer.get()
+                await stream_data(live_seq)
+            else:
+                await websocket.close(code=1000, reason="Producer ended stream")
+        except WebSocketDisconnect:
+            print(f"Client disconnected from node {node_id}")
+        finally:
+            live_task.cancel()
 
     @app.get("/stream/live")
     async def list_live_streams():
-        nodes = redis_client.keys("seq_num:*")
+        nodes = await redis_client.keys("seq_num:*")
         return [node.decode("utf-8").split(":")[1] for node in nodes]
-
-    # @app.websocket("/stream/{path:path}/{uid}")
-    # async def websocket_endpoint(
-    #     path: str, uid: str, websocket: WebSocket, cursor: int | None = None
-    # ):
-    #     """
-    #     WebSocket endpoint to stream dataset records to the client.
-
-    #     Parameters
-    #     ----------
-    #     uid : str
-    #         unique indentifier for the dataset.
-    #     path : str
-    #         catalog path.
-    #     websocket : WebSocket
-    #         WebSocket connection instance.
-    #     cursor : int, optional
-    #         Starting position in the dataset (default is 0).
-    #     """
-
-    #     # How do you know when a dataset is completed?
-    #     subprotocols = ["v1"]
-    #     mimetypes = ["*/*", "application/json"]
-    #     mimetype, subprotocol = await websocket_accept(
-    #         websocket, mimetypes, subprotocols
-    #     )
-
-    #     while True:
-    #         async with app.pool.acquire() as connection:
-    #             result = await connection.fetchrow(
-    #                 f"SELECT * FROM datasets WHERE uid='{uid}' AND path='{path}' LIMIT 1;"
-    #             )
-    #             if result is not None:
-    #                 path, uid, data, length = result
-    #                 if cursor is None:
-    #                     cursor = length
-    #                 print(f"server {path = }, {data = }")
-    #                 while cursor < length:
-    #                     if mimetype == "application/json":
-    #                         await websocket.send_json({"record": data[cursor]})
-    #                     elif mimetype == "application/octet-stream":
-    #                         await websocket.send_bytes(np.array(data[cursor]).tobytes())
-    #                     elif mimetype == "image/tiff":
-    #                         with open(f"image.tiff", "rb") as tiff:
-    #                             await websocket.send_bytes(tiff.read())
-    #                     else:
-    #                         raise WebSocketException(
-    #                             f"Invalid subprotocol: {subprotocols}"
-    #                         )
-    #                     cursor += 1
-    #             await asyncio.sleep(1)
 
     return app
 
