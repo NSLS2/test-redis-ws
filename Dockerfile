@@ -10,7 +10,6 @@ RUN pixi install
 
 # Copy application code
 COPY server.py .
-COPY redis/ ./redis/
 
 # Expose the streaming API port
 EXPOSE 8000
