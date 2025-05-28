@@ -51,6 +51,13 @@ You can scale to any number of instances (e.g., `--scale streaming_api=5` for 5 
 - **Traefik Dashboard**: http://localhost:8090 (see routing and load balancing info)
 - **Redis**: localhost:6379 (if you need direct access)
 
+#### Testing Load Balancing
+
+To verify load balancing is working, run this command to see requests distributed across different server instances:
+```sh
+for i in {1..20}; do curl -s -D - http://localhost:8000/stream/live 2>/dev/null | grep X-Server-Host; done
+```
+
 #### Stopping the Services
 
 ```sh
