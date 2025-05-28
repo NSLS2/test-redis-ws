@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+
   redis:
     image: redis:7-alpine
     ports:
@@ -16,8 +29,6 @@ services:
 
   fastapi:
     build: .
-    ports:
-      - "8000:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
     depends_on:
@@ -25,3 +36,8 @@ services:
         condition: service_healthy
     volumes:
       - ./server.py:/app/server.py:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fastapi.rule=Host(`localhost`)"
+      - "traefik.http.routers.fastapi.entrypoints=web"
+      - "traefik.http.services.fastapi.loadbalancer.server.port=8000"
