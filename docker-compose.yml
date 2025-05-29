@@ -3,17 +3,12 @@ version: '3.8'
 services:
   traefik:
     image: docker.io/library/traefik:v3.0
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:8000"
     ports:
       - "8000:8000"
       - "8090:8080"  # Traefik dashboard
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-    privileged: true
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik-routes.yml:/etc/traefik/conf/routes.yml:ro
 
   redis:
     image: redis:7-alpine
@@ -28,7 +23,7 @@ services:
       timeout: 3s
       retries: 5
 
-  streaming_api:
+  streaming_api-1:
     build: .
     environment:
       - REDIS_URL=redis://redis:6379/0
@@ -37,10 +32,23 @@ services:
         condition: service_healthy
     volumes:
       - ./server.py:/app/server.py:ro
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.streaming_api.rule=Host(`localhost`)"
-      - "traefik.http.routers.streaming_api.entrypoints=web"
-      - "traefik.http.services.streaming_api.loadbalancer.server.port=8000"
-    deploy:
-      replicas: 3
+
+  streaming_api-2:
+    build: .
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./server.py:/app/server.py:ro
+
+  streaming_api-3:
+    build: .
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./server.py:/app/server.py:ro

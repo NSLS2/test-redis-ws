@@ -1,0 +1,15 @@
+http:
+  routers:
+    api:
+      rule: "PathPrefix(`/`)"
+      entryPoints:
+        - web
+      service: api-service
+
+  services:
+    api-service:
+      loadBalancer:
+        servers:
+          - url: "http://streaming_api-1:8000"
+          - url: "http://streaming_api-2:8000"  
+          - url: "http://streaming_api-3:8000"

@@ -14,16 +14,19 @@ docker run --net=host --rm -v ./redis:/usr/local/etc/redis --name test-redis red
 pixi run serve
 ```
 
-### Option 2: Running Multiple API Replicas
+### Option 2: Docker Compose with Load Balancing
 
-To run multiple instances of the Streaming API application with automatic load balancing:
+The project includes a Docker Compose configuration that sets up:
+- Redis server
+- 3 Streaming API instances (fixed configuration)
+- Traefik reverse proxy for load balancing
 
+To start all services:
 ```sh
-podman-compose up -d --scale streaming_api=3
+docker-compose up -d
+# or with podman
+podman-compose up -d
 ```
-You can scale to any number of instances (e.g., `--scale streaming_api=5` for 5 instances).
-
-**Note**: Scaling with `--scale` requires podman-compose 1.0.6+ or docker-compose.
 
 #### Accessing the Services
 
