@@ -38,5 +38,5 @@ podman-compose up -d
 
 To verify load balancing is working, run this command to see requests distributed across different server instances:
 ```sh
-for i in {1..20}; do curl -s -D - http://localhost:8000/stream/live 2>/dev/null | grep X-Server-Host; done
+for i in {1..20}; do curl -s -D - http://localhost:8000/stream/live 2>/dev/null | grep X-Server-Host; done | sort
 ```
