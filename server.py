@@ -3,7 +3,7 @@ import json
 import numpy as np
 import uvicorn
 from pydantic_settings import BaseSettings
-from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect, Response
+from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect
 from pydantic import BaseModel
 from datetime import datetime
 import msgpack
@@ -20,11 +20,15 @@ def build_app(settings: Settings):
 
     app = FastAPI()
 
-    @app.post("/upload")
-    def create(response: Response):
-        "Declare a new dataset."
-        # Add server hostname to response header
+    @app.middleware("http")
+    async def add_server_header(request: Request, call_next):
+        response = await call_next(request)
         response.headers["X-Server-Host"] = socket.gethostname()
+        return response
+
+    @app.post("/upload")
+    def create():
+        "Declare a new dataset."
 
         # Generate a rnadom node_id.
         # (In Tiled, PostgreSQL will give us a unique ID.)
@@ -34,19 +38,15 @@ def build_app(settings: Settings):
         return {"node_id": node_id}
 
     @app.delete("/upload/{node_id}")
-    def close(node_id, response: Response):
+    def close(node_id):
         "Declare that a dataset is done streaming."
-        # Add server hostname to response header
-        response.headers["X-Server-Host"] = socket.gethostname()
 
         redis_client.delete(f"seq_num:{node_id}")
         # TODO: Shorten TTL on all extant data for this node.
 
     @app.post("/upload/{node_id}")
-    async def append(node_id, request: Request, response: Response):
+    async def append(node_id, request: Request):
         "Append data to a dataset."
-        # Add server hostname to response header
-        response.headers["X-Server-Host"] = socket.gethostname()
 
         # get data from request body
         binary_data = await request.body()
@@ -78,9 +78,7 @@ def build_app(settings: Settings):
     #   @app.websocket("/stream/many")
 
     @app.post("/close/{node_id}")
-    async def close_connection(node_id: str, request: Request, response: Response):
-        # Add server hostname to response header
-        response.headers["X-Server-Host"] = socket.gethostname()
+    async def close_connection(node_id: str, request: Request):
 
         # Parse the JSON body
         body = await request.json()
@@ -188,9 +186,7 @@ def build_app(settings: Settings):
             live_task.cancel()
 
     @app.get("/stream/live")
-    async def list_live_streams(response: Response):
-        # Add server hostname to response header
-        response.headers["X-Server-Host"] = socket.gethostname()
+    async def list_live_streams():
 
         nodes = await redis_client.keys("seq_num:*")
         return [node.decode("utf-8").split(":")[1] for node in nodes]
