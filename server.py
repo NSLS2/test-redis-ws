@@ -37,12 +37,13 @@ def build_app(settings: Settings):
         redis_client.setnx(f"seq_num:{node_id}", 0)
         return {"node_id": node_id}
 
-    @app.delete("/upload/{node_id}")
+    @app.delete("/upload/{node_id}", status_code=204)
     def close(node_id):
         "Declare that a dataset is done streaming."
 
         redis_client.delete(f"seq_num:{node_id}")
         # TODO: Shorten TTL on all extant data for this node.
+        return None
 
     @app.post("/upload/{node_id}")
     async def append(node_id, request: Request):
