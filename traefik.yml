@@ -1,0 +1,12 @@
+# Static configuration
+api:
+  insecure: true
+  dashboard: true
+
+entryPoints:
+  web:
+    address: ":8000"
+
+providers:
+  file:
+    directory: /etc/traefik/conf

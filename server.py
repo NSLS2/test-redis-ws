@@ -9,6 +9,7 @@ from datetime import datetime
 import msgpack
 import asyncio
 from typing import Optional
+import socket
 
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
@@ -19,9 +20,16 @@ def build_app(settings: Settings):
 
     app = FastAPI()
 
+    @app.middleware("http")
+    async def add_server_header(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Server-Host"] = socket.gethostname()
+        return response
+
     @app.post("/upload")
     def create():
         "Declare a new dataset."
+
         # Generate a rnadom node_id.
         # (In Tiled, PostgreSQL will give us a unique ID.)
         node_id = np.random.randint(1_000_000)
@@ -29,11 +37,13 @@ def build_app(settings: Settings):
         redis_client.setnx(f"seq_num:{node_id}", 0)
         return {"node_id": node_id}
 
-    @app.delete("/upload/{node_id}")
+    @app.delete("/upload/{node_id}", status_code=204)
     def close(node_id):
         "Declare that a dataset is done streaming."
+
         redis_client.delete(f"seq_num:{node_id}")
         # TODO: Shorten TTL on all extant data for this node.
+        return None
 
     @app.post("/upload/{node_id}")
     async def append(node_id, request: Request):
@@ -70,12 +80,13 @@ def build_app(settings: Settings):
 
     @app.post("/close/{node_id}")
     async def close_connection(node_id: str, request: Request):
+
         # Parse the JSON body
         body = await request.json()
         headers = request.headers
-    
+
         reason = body.get("reason", None)
-    
+
         metadata = {
             "timestamp": datetime.now().isoformat(),
             "reason": reason
@@ -103,14 +114,16 @@ def build_app(settings: Settings):
             "status": f"Connection for node {node_id} is now closed.",
             "reason": reason
         }
-    
+
 
     @app.websocket("/stream/single/{node_id}")  # one-way communcation
-    async def websocket_endpoint(websocket: WebSocket, 
-                                 node_id: str, 
-                                 envelope_format: str = "json", 
+    async def websocket_endpoint(websocket: WebSocket,
+                                 node_id: str,
+                                 envelope_format: str = "json",
                                  seq_num: Optional[int] = None):
-        await websocket.accept()
+        await websocket.accept(headers={
+            "X-Server-Host": socket.gethostname()
+        })
         end_stream = asyncio.Event()
         async def stream_data(seq_num):
             key = f"data:{node_id}:{seq_num}"
@@ -123,7 +136,8 @@ def build_app(settings: Settings):
                 payload = json.loads(payload)
             data = { "sequence": seq_num,
                       "metadata": metadata.decode('utf-8'),
-                      "payload": payload 
+                      "payload": payload,
+                      "server_host": socket.gethostname()
                     }
             if envelope_format == "msgpack":
                 data = msgpack.packb(data)
@@ -174,6 +188,7 @@ def build_app(settings: Settings):
 
     @app.get("/stream/live")
     async def list_live_streams():
+
         nodes = await redis_client.keys("seq_num:*")
         return [node.decode("utf-8").split(":")[1] for node in nodes]
 

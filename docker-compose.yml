@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: docker.io/library/traefik:v3.0
+    ports:
+      - "8000:8000"
+      - "8090:8080"  # Traefik dashboard
+    volumes:
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik-routes.yml:/etc/traefik/conf/routes.yml:ro
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  streaming_api-1:
+    build: .
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./server.py:/app/server.py:ro
+
+  streaming_api-2:
+    build: .
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./server.py:/app/server.py:ro
+
+  streaming_api-3:
+    build: .
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./server.py:/app/server.py:ro
