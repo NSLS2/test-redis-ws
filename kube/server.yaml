@@ -1,0 +1,99 @@
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  labels:
+    app: redis
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+    protocol: TCP
+    name: redis
+  type: ClusterIP
+---
+# test-redis-ws Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-redis-ws
+  labels:
+    app: test-redis-ws
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: test-redis-ws
+  template:
+    metadata:
+      labels:
+        app: test-redis-ws
+    spec:
+      containers:
+      - name: test-redis-ws
+        image: ghcr.io/nsls2/test-redis-ws:kube
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: REDIS_URL
+          value: "redis://redis:6379/0"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+# test-redis-ws Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-redis-ws
+  labels:
+    app: test-redis-ws
+spec:
+  selector:
+    app: test-redis-ws
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  type: ClusterIP
