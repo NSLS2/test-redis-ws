@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-redis-ws
+  labels:
+    app: test-redis-ws
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: test-redis-ws
+  template:
+    metadata:
+      labels:
+        app: test-redis-ws
+    spec:
+      containers:
+      - name: test-redis-ws
+        image: ghcr.io/nsls2/test-redis-ws:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"

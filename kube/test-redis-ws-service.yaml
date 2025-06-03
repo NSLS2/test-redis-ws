@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-redis-ws
+  labels:
+    app: test-redis-ws
+spec:
+  selector:
+    app: test-redis-ws
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  type: ClusterIP
