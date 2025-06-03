@@ -16,10 +16,11 @@ NUM_WRITES = int(os.getenv("NUM_WRITES", "10"))
 
 
 def main():
-    for _ in range(3):
+    for run in range(3):
         #content = client.post("/upload").raise_for_status().json()
         #node_id = content["node_id"]
         node_id = 481980
+        print(f"Writing {run=}")
         for i in range(NUM_WRITES):
             time.sleep(WRITE_DELAY)
             binary_data = (np.ones(5) * i).tobytes()
@@ -28,9 +29,14 @@ def main():
                 data=binary_data,
                 headers={"Content-Type": "application/octet-stream"},
             ).raise_for_status()
+            if i % 10 == 0:
+                print(f"Wrote {i}/{NUM_WRITES}")
+        print(f"Completed {NUM_WRITES} writes")
         client.delete(f"/upload/{node_id}").raise_for_status()
+        print(f"Deleted node {node_id}")
     if '--close' in sys.argv:
         print("Closing stream")
         client.post(f"/close/{node_id}", json={"reason": "Experiment complete"})
+    print("\nWriterfinished successfully")
 
 main()
