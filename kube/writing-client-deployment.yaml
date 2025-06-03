@@ -1,29 +1,30 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: test-redis-ws
+  name: writing-client
   labels:
-    app: test-redis-ws
+    app: writing-client
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: test-redis-ws
+      app: writing-client
   template:
     metadata:
       labels:
-        app: test-redis-ws
+        app: writing-client
     spec:
       containers:
-      - name: test-redis-ws
-        image: ghcr.io/nsls2/test-redis-ws:kube
+      - name: writing-client
+        image: ghcr.io/nsls2/writing-client:kube
         imagePullPolicy: Always
-        ports:
-        - containerPort: 8000
-          name: http
         env:
-        - name: REDIS_URL
-          value: "redis://redis:6379/0"
+        - name: REDIS_WS_API_URL
+          value: "test-redis-ws:8000"
+        - name: WRITE_DELAY
+          value: "0.5"
+        - name: NUM_WRITES
+          value: "10"
         resources:
           requests:
             memory: "64Mi"

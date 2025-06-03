@@ -1,29 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: test-redis-ws
+  name: streaming-client
   labels:
-    app: test-redis-ws
+    app: streaming-client
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: test-redis-ws
+      app: streaming-client
   template:
     metadata:
       labels:
-        app: test-redis-ws
+        app: streaming-client
     spec:
       containers:
-      - name: test-redis-ws
-        image: ghcr.io/nsls2/test-redis-ws:kube
+      - name: streaming-client
+        image: ghcr.io/nsls2/streaming-client:kube
         imagePullPolicy: Always
-        ports:
-        - containerPort: 8000
-          name: http
         env:
-        - name: REDIS_URL
-          value: "redis://redis:6379/0"
+        - name: REDIS_WS_API_URL
+          value: "test-redis-ws:8000"
         resources:
           requests:
             memory: "64Mi"
