@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: test-redis-ws
-        image: ghcr.io/nsls2/test-redis-ws:latest
+        image: ghcr.io/nsls2/test-redis-ws:kube
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
@@ -28,8 +28,8 @@ spec:
           value: "6379"
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "250m"
+            memory: "64Mi"
+            cpu: "50m"
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "256Mi"
+            cpu: "200m"
