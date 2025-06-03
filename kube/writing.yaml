@@ -16,20 +16,20 @@ spec:
         app: writing-client
     spec:
       containers:
-      - name: writing-client
-        image: ghcr.io/nsls2/writing-client:kube
-        imagePullPolicy: Always
-        env:
-        - name: REDIS_WS_API_URL
-          value: "test-redis-ws:8000"
-        - name: WRITE_DELAY
-          value: "0.5"
-        - name: NUM_WRITES
-          value: "100"
-        resources:
-          requests:
-            memory: "64Mi"
-            cpu: "10m"
-          limits:
-            memory: "256Mi"
-            cpu: "200m"
+        - name: writing-client
+          image: ghcr.io/nsls2/writing-client:kube
+          imagePullPolicy: Always
+          env:
+            - name: REDIS_WS_API_URL
+              value: "test-redis-ws:8000"
+            - name: WRITE_DELAY
+              value: "0.5"
+            - name: NUM_WRITES
+              value: "100"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "10m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
