@@ -1,20 +1,19 @@
-# Writing Client Deployment
-apiVersion: apps/v1
-kind: Deployment
+# Writing Client Job
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: writing-client
   labels:
     app: writing-client
 spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: writing-client
+  parallelism: 1
   template:
     metadata:
       labels:
         app: writing-client
+        streaming: "true"
     spec:
+      restartPolicy: Never
       containers:
         - name: writing-client
           image: ghcr.io/nsls2/writing-client:kube

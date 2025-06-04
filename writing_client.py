@@ -3,6 +3,7 @@ import httpx
 import time
 import sys
 import os
+from datetime import datetime
 
 # Get base URL from environment variable, default to localhost
 REDIS_WS_API_URL = os.getenv("REDIS_WS_API_URL", "localhost:8000")
@@ -29,8 +30,7 @@ def main():
                 data=binary_data,
                 headers={"Content-Type": "application/octet-stream"},
             ).raise_for_status()
-            if i % 10 == 0:
-                print(f"Wrote {i}/{NUM_WRITES}")
+            print(f"Wrote message {i} to node {node_id}")
         print(f"Completed {NUM_WRITES} writes")
         client.delete(f"/upload/{node_id}").raise_for_status()
         print(f"Deleted node {node_id}")

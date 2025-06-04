@@ -62,6 +62,7 @@ spec:
     metadata:
       labels:
         app: test-redis-ws
+        streaming: "true"
     spec:
       containers:
         - name: test-redis-ws
