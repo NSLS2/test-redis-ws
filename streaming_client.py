@@ -30,6 +30,7 @@ import os
 REDIS_WS_API_URL = os.getenv("REDIS_WS_API_URL", "localhost:8000")
 client = AsyncClient(base_url=f"http://{REDIS_WS_API_URL}")
 
+print("streaming_client starting")
 
 async def get_live():
     result = await client.get("/stream/live")

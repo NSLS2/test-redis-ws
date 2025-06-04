@@ -3,7 +3,6 @@ import httpx
 import time
 import sys
 import os
-from datetime import datetime
 
 # Get base URL from environment variable, default to localhost
 REDIS_WS_API_URL = os.getenv("REDIS_WS_API_URL", "localhost:8000")
