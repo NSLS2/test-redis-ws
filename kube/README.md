@@ -5,6 +5,11 @@
 - `streaming.yaml` - Streaming clients (3 replicas)
 - `writing.yaml` - Writing clients (3 replicas)
 
+## Start fresh
+```bash
+kubectl delete -f .
+```
+
 ## Deploy
 ```bash
 kubectl apply -f server.yaml
@@ -19,7 +24,7 @@ kubectl delete job writing-client
 kubectl apply -f writing.yaml
 ```
 
-## Test
+## Useful commands
 ```bash
 # From netshoot container
 kubectl run netshoot --image=nicolaka/netshoot --rm -it --restart=Never -- /bin/bash
@@ -47,6 +52,9 @@ kubectl logs -l app=test-redis-ws -f --prefix=true --timestamps=true
 
 # Get writer logs
 kubectl logs -l app=writing-client -f --prefix=true --timestamps=true
+
+# Get all logs
+kubectl logs -l streaming=true -f --prefix=true --timestamps=true --max-log-requests 9
 ```
 
 ## Images

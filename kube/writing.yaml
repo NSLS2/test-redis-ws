@@ -24,7 +24,7 @@ spec:
             - name: WRITE_DELAY
               value: "0.5"
             - name: NUM_WRITES
-              value: "5"
+              value: "2"
           resources:
             requests:
               memory: "64Mi"
