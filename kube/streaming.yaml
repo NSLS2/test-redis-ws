@@ -23,6 +23,8 @@ spec:
           env:
             - name: REDIS_WS_API_URL
               value: "test-redis-ws:8000"
+            - name: PYTHONUNBUFFERED
+              value: "1"
           resources:
             requests:
               memory: "64Mi"

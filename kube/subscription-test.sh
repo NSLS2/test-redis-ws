@@ -22,6 +22,10 @@ echo "Starting writer job..."
 kubectl delete job writing-client 2>/dev/null
 kubectl apply -f writing.yaml
 
+# Wait for writer job pods to start
+echo "Waiting for writer job to start..."
+sleep 5
+
 # Collect logs from all streaming pods
 echo "Collecting logs for 20 seconds..."
 kubectl logs -l streaming=true -f --prefix=true --timestamps=true --max-log-requests=10 > subscription.log 2>&1 &

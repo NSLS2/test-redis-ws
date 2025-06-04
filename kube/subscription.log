@@ -1,0 +1,86 @@
+[pod/streaming-client-5b79bf5b6d-z4mcx/streaming-client] 2025-06-04T18:39:32.372872430-04:00 streaming_client starting
+[pod/streaming-client-5b79bf5b6d-z4mcx/streaming-client] 2025-06-04T18:39:32.788052967-04:00 []
+[pod/streaming-client-5b79bf5b6d-dn4qs/streaming-client] 2025-06-04T18:39:32.141014230-04:00 streaming_client starting
+[pod/streaming-client-5b79bf5b6d-z4mcx/streaming-client] 2025-06-04T18:39:33.177847123-04:00 Connected to ws://test-redis-ws:8000/stream/single/481980?envelope_format=msgpack&seq_num=1
+[pod/streaming-client-5b79bf5b6d-dn4qs/streaming-client] 2025-06-04T18:39:32.502253986-04:00 []
+[pod/streaming-client-5b79bf5b6d-dn4qs/streaming-client] 2025-06-04T18:39:32.853957396-04:00 Connected to ws://test-redis-ws:8000/stream/single/481980?envelope_format=msgpack&seq_num=1
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:23.241274662-04:00 INFO:     Started server process [18]
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:23.241315663-04:00 INFO:     Waiting for application startup.
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:23.241319265-04:00 INFO:     Application startup complete.
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:23.256332824-04:00 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:32.851647269-04:00 INFO:     ('10.42.3.191', 51676) - "WebSocket /stream/single/481980?envelope_format=msgpack&seq_num=1" [accepted]
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:32.852682583-04:00 INFO:     connection open
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:32.858825998-04:00 Replaying old data...
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:34.267726553-04:00 Replaying old data...
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:34.267769091-04:00 INFO:     ('10.42.1.139', 34570) - "WebSocket /stream/single/481980?envelope_format=msgpack&seq_num=1" [accepted]
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:34.267773854-04:00 INFO:     connection open
+[pod/test-redis-ws-6f6ff99985-856v5/test-redis-ws] 2025-06-04T18:39:24.661183570-04:00 INFO:     Started server process [19]
+[pod/test-redis-ws-6f6ff99985-856v5/test-redis-ws] 2025-06-04T18:39:24.661224012-04:00 INFO:     Waiting for application startup.
+[pod/test-redis-ws-6f6ff99985-856v5/test-redis-ws] 2025-06-04T18:39:24.661228144-04:00 INFO:     Application startup complete.
+[pod/streaming-client-5b79bf5b6d-tzpjk/streaming-client] 2025-06-04T18:39:33.560439223-04:00 streaming_client starting
+[pod/streaming-client-5b79bf5b6d-tzpjk/streaming-client] 2025-06-04T18:39:33.776804577-04:00 []
+[pod/streaming-client-5b79bf5b6d-tzpjk/streaming-client] 2025-06-04T18:39:34.267576255-04:00 Connected to ws://test-redis-ws:8000/stream/single/481980?envelope_format=msgpack&seq_num=1
+[pod/test-redis-ws-6f6ff99985-856v5/test-redis-ws] 2025-06-04T18:39:24.679733486-04:00 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[pod/test-redis-ws-6f6ff99985-856v5/test-redis-ws] 2025-06-04T18:39:32.497947533-04:00 INFO:     10.42.3.191:51660 - "GET /stream/live HTTP/1.1" 200 OK
+[pod/test-redis-ws-6f6ff99985-856v5/test-redis-ws] 2025-06-04T18:39:33.174978400-04:00 INFO:     ('10.42.0.232', 60498) - "WebSocket /stream/single/481980?envelope_format=msgpack&seq_num=1" [accepted]
+[pod/test-redis-ws-6f6ff99985-856v5/test-redis-ws] 2025-06-04T18:39:33.175818280-04:00 INFO:     connection open
+[pod/test-redis-ws-6f6ff99985-856v5/test-redis-ws] 2025-06-04T18:39:33.176575929-04:00 Replaying old data...
+[pod/test-redis-ws-6f6ff99985-djhqc/test-redis-ws] 2025-06-04T18:39:24.864909789-04:00 INFO:     Started server process [18]
+[pod/test-redis-ws-6f6ff99985-djhqc/test-redis-ws] 2025-06-04T18:39:24.865247071-04:00 INFO:     Waiting for application startup.
+[pod/test-redis-ws-6f6ff99985-djhqc/test-redis-ws] 2025-06-04T18:39:24.865677257-04:00 INFO:     Application startup complete.
+[pod/test-redis-ws-6f6ff99985-djhqc/test-redis-ws] 2025-06-04T18:39:24.872964700-04:00 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+[pod/test-redis-ws-6f6ff99985-djhqc/test-redis-ws] 2025-06-04T18:39:32.784605114-04:00 INFO:     10.42.0.232:60490 - "GET /stream/live HTTP/1.1" 200 OK
+[pod/test-redis-ws-6f6ff99985-djhqc/test-redis-ws] 2025-06-04T18:39:33.774676382-04:00 INFO:     10.42.1.139:34558 - "GET /stream/live HTTP/1.1" 200 OK
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:40.268565823-04:00 Writing run=0
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:40.852030781-04:00 Setting pipeline metadata: b'{"timestamp": "2025-06-04T22:39:40.850236", "Content-Type": "application/octet-stream"}'
+[pod/streaming-client-5b79bf5b6d-z4mcx/streaming-client] 2025-06-04T18:39:40.859840622-04:00 Received Msgpack: {'sequence': 1, 'metadata': '{"timestamp": "2025-06-04T22:39:40.850236", "Content-Type": "application/octet-stream"}', 'payload': [0.0, 0.0, 0.0, 0.0, 0.0], 'server_host': 'test-redis-ws-6f6ff99985-856v5'}
+[pod/streaming-client-5b79bf5b6d-tzpjk/streaming-client] 2025-06-04T18:39:40.856305227-04:00 Received Msgpack: {'sequence': 1, 'metadata': '{"timestamp": "2025-06-04T22:39:40.850236", "Content-Type": "application/octet-stream"}', 'payload': [0.0, 0.0, 0.0, 0.0, 0.0], 'server_host': 'test-redis-ws-6f6ff99985-m87qw'}
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:40.854565625-04:00 INFO:     10.42.0.233:37142 - "POST /upload/481980 HTTP/1.1" 200 OK
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:40.858181638-04:00 Wrote message 0 to node 481980
+[pod/streaming-client-5b79bf5b6d-dn4qs/streaming-client] 2025-06-04T18:39:40.937207322-04:00 Received Msgpack: {'sequence': 1, 'metadata': '{"timestamp": "2025-06-04T22:39:40.850236", "Content-Type": "application/octet-stream"}', 'payload': [0.0, 0.0, 0.0, 0.0, 0.0], 'server_host': 'test-redis-ws-6f6ff99985-m87qw'}
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:41.374303005-04:00 Setting pipeline metadata: b'{"timestamp": "2025-06-04T22:39:41.370789", "Content-Type": "application/octet-stream"}'
+[pod/streaming-client-5b79bf5b6d-tzpjk/streaming-client] 2025-06-04T18:39:41.388927022-04:00 Received Msgpack: {'sequence': 2, 'metadata': '{"timestamp": "2025-06-04T22:39:41.370789", "Content-Type": "application/octet-stream"}', 'payload': [1.0, 1.0, 1.0, 1.0, 1.0], 'server_host': 'test-redis-ws-6f6ff99985-m87qw'}
+[pod/streaming-client-5b79bf5b6d-z4mcx/streaming-client] 2025-06-04T18:39:41.381319865-04:00 Received Msgpack: {'sequence': 2, 'metadata': '{"timestamp": "2025-06-04T22:39:41.370789", "Content-Type": "application/octet-stream"}', 'payload': [1.0, 1.0, 1.0, 1.0, 1.0], 'server_host': 'test-redis-ws-6f6ff99985-856v5'}
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:41.383530095-04:00 INFO:     10.42.0.233:37142 - "POST /upload/481980 HTTP/1.1" 200 OK
+[pod/streaming-client-5b79bf5b6d-dn4qs/streaming-client] 2025-06-04T18:39:41.389493905-04:00 Received Msgpack: {'sequence': 2, 'metadata': '{"timestamp": "2025-06-04T22:39:41.370789", "Content-Type": "application/octet-stream"}', 'payload': [1.0, 1.0, 1.0, 1.0, 1.0], 'server_host': 'test-redis-ws-6f6ff99985-m87qw'}
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:41.388977007-04:00 Wrote message 1 to node 481980
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:41.389029100-04:00 Completed 2 writes
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:41.414351975-04:00 /app/server.py:44: RuntimeWarning: coroutine 'Redis.execute_command' was never awaited
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:41.414385421-04:00   redis_client.delete(f"seq_num:{node_id}")
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:41.416703361-04:00 Deleted node 481980
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:41.414390357-04:00 RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:41.414863637-04:00 INFO:     10.42.0.233:37142 - "DELETE /upload/481980 HTTP/1.1" 204 No Content
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:41.416755123-04:00 Writing run=1
+[pod/streaming-client-5b79bf5b6d-z4mcx/streaming-client] 2025-06-04T18:39:41.923098071-04:00 Received Msgpack: {'sequence': 3, 'metadata': '{"timestamp": "2025-06-04T22:39:41.919048", "Content-Type": "application/octet-stream"}', 'payload': [0.0, 0.0, 0.0, 0.0, 0.0], 'server_host': 'test-redis-ws-6f6ff99985-856v5'}
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:41.920944489-04:00 Setting pipeline metadata: b'{"timestamp": "2025-06-04T22:39:41.919048", "Content-Type": "application/octet-stream"}'
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:41.925766360-04:00 INFO:     10.42.0.233:37142 - "POST /upload/481980 HTTP/1.1" 200 OK
+[pod/streaming-client-5b79bf5b6d-tzpjk/streaming-client] 2025-06-04T18:39:41.928142530-04:00 Received Msgpack: {'sequence': 3, 'metadata': '{"timestamp": "2025-06-04T22:39:41.919048", "Content-Type": "application/octet-stream"}', 'payload': [0.0, 0.0, 0.0, 0.0, 0.0], 'server_host': 'test-redis-ws-6f6ff99985-m87qw'}
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:41.928171926-04:00 Wrote message 0 to node 481980
+[pod/streaming-client-5b79bf5b6d-dn4qs/streaming-client] 2025-06-04T18:39:41.928204652-04:00 Received Msgpack: {'sequence': 3, 'metadata': '{"timestamp": "2025-06-04T22:39:41.919048", "Content-Type": "application/octet-stream"}', 'payload': [0.0, 0.0, 0.0, 0.0, 0.0], 'server_host': 'test-redis-ws-6f6ff99985-m87qw'}
+[pod/streaming-client-5b79bf5b6d-z4mcx/streaming-client] 2025-06-04T18:39:42.435044704-04:00 Received Msgpack: {'sequence': 4, 'metadata': '{"timestamp": "2025-06-04T22:39:42.431224", "Content-Type": "application/octet-stream"}', 'payload': [1.0, 1.0, 1.0, 1.0, 1.0], 'server_host': 'test-redis-ws-6f6ff99985-856v5'}
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:42.438418725-04:00 Wrote message 1 to node 481980
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:42.438475264-04:00 Completed 2 writes
+[pod/streaming-client-5b79bf5b6d-dn4qs/streaming-client] 2025-06-04T18:39:42.435744164-04:00 Received Msgpack: {'sequence': 4, 'metadata': '{"timestamp": "2025-06-04T22:39:42.431224", "Content-Type": "application/octet-stream"}', 'payload': [1.0, 1.0, 1.0, 1.0, 1.0], 'server_host': 'test-redis-ws-6f6ff99985-m87qw'}
+[pod/streaming-client-5b79bf5b6d-tzpjk/streaming-client] 2025-06-04T18:39:42.436088993-04:00 Received Msgpack: {'sequence': 4, 'metadata': '{"timestamp": "2025-06-04T22:39:42.431224", "Content-Type": "application/octet-stream"}', 'payload': [1.0, 1.0, 1.0, 1.0, 1.0], 'server_host': 'test-redis-ws-6f6ff99985-m87qw'}
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:42.433017071-04:00 Setting pipeline metadata: b'{"timestamp": "2025-06-04T22:39:42.431224", "Content-Type": "application/octet-stream"}'
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:42.435793568-04:00 INFO:     10.42.0.233:37142 - "POST /upload/481980 HTTP/1.1" 200 OK
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:42.442445556-04:00 Deleted node 481980
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:42.441869147-04:00 INFO:     10.42.0.233:37142 - "DELETE /upload/481980 HTTP/1.1" 204 No Content
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:42.442474870-04:00 Writing run=2
+[pod/streaming-client-5b79bf5b6d-tzpjk/streaming-client] 2025-06-04T18:39:42.954477141-04:00 Received Msgpack: {'sequence': 5, 'metadata': '{"timestamp": "2025-06-04T22:39:42.946494", "Content-Type": "application/octet-stream"}', 'payload': [0.0, 0.0, 0.0, 0.0, 0.0], 'server_host': 'test-redis-ws-6f6ff99985-m87qw'}
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:42.948204842-04:00 Setting pipeline metadata: b'{"timestamp": "2025-06-04T22:39:42.946494", "Content-Type": "application/octet-stream"}'
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:42.952571175-04:00 INFO:     10.42.0.233:37142 - "POST /upload/481980 HTTP/1.1" 200 OK
+[pod/streaming-client-5b79bf5b6d-z4mcx/streaming-client] 2025-06-04T18:39:42.952534329-04:00 Received Msgpack: {'sequence': 5, 'metadata': '{"timestamp": "2025-06-04T22:39:42.946494", "Content-Type": "application/octet-stream"}', 'payload': [0.0, 0.0, 0.0, 0.0, 0.0], 'server_host': 'test-redis-ws-6f6ff99985-856v5'}
+[pod/streaming-client-5b79bf5b6d-dn4qs/streaming-client] 2025-06-04T18:39:42.954352005-04:00 Received Msgpack: {'sequence': 5, 'metadata': '{"timestamp": "2025-06-04T22:39:42.946494", "Content-Type": "application/octet-stream"}', 'payload': [0.0, 0.0, 0.0, 0.0, 0.0], 'server_host': 'test-redis-ws-6f6ff99985-m87qw'}
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:42.956516554-04:00 Wrote message 0 to node 481980
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:43.482733407-04:00 Setting pipeline metadata: b'{"timestamp": "2025-06-04T22:39:43.476705", "Content-Type": "application/octet-stream"}'
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:43.485870531-04:00 INFO:     10.42.0.233:37142 - "POST /upload/481980 HTTP/1.1" 200 OK
+[pod/streaming-client-5b79bf5b6d-dn4qs/streaming-client] 2025-06-04T18:39:43.486499685-04:00 Received Msgpack: {'sequence': 6, 'metadata': '{"timestamp": "2025-06-04T22:39:43.476705", "Content-Type": "application/octet-stream"}', 'payload': [1.0, 1.0, 1.0, 1.0, 1.0], 'server_host': 'test-redis-ws-6f6ff99985-m87qw'}
+[pod/streaming-client-5b79bf5b6d-tzpjk/streaming-client] 2025-06-04T18:39:43.486637433-04:00 Received Msgpack: {'sequence': 6, 'metadata': '{"timestamp": "2025-06-04T22:39:43.476705", "Content-Type": "application/octet-stream"}', 'payload': [1.0, 1.0, 1.0, 1.0, 1.0], 'server_host': 'test-redis-ws-6f6ff99985-m87qw'}
+[pod/test-redis-ws-6f6ff99985-m87qw/test-redis-ws] 2025-06-04T18:39:43.492101872-04:00 INFO:     10.42.0.233:37142 - "DELETE /upload/481980 HTTP/1.1" 204 No Content
+[pod/streaming-client-5b79bf5b6d-z4mcx/streaming-client] 2025-06-04T18:39:43.487875908-04:00 Received Msgpack: {'sequence': 6, 'metadata': '{"timestamp": "2025-06-04T22:39:43.476705", "Content-Type": "application/octet-stream"}', 'payload': [1.0, 1.0, 1.0, 1.0, 1.0], 'server_host': 'test-redis-ws-6f6ff99985-856v5'}
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:43.488162293-04:00 Wrote message 1 to node 481980
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:43.489424692-04:00 Completed 2 writes
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:43.492706019-04:00 Deleted node 481980
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:43.492730667-04:00 
+[pod/writing-client-ww874/writing-client] 2025-06-04T18:39:43.492735737-04:00 Writerfinished successfully

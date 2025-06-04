@@ -74,6 +74,8 @@ spec:
           env:
             - name: REDIS_URL
               value: "redis://redis:6379/0"
+            - name: PYTHONUNBUFFERED
+              value: "1"
           resources:
             requests:
               memory: "64Mi"

@@ -25,6 +25,8 @@ spec:
               value: "0.5"
             - name: NUM_WRITES
               value: "2"
+            - name: PYTHONUNBUFFERED
+              value: "1"
           resources:
             requests:
               memory: "64Mi"
