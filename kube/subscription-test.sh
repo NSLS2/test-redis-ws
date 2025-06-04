@@ -4,7 +4,12 @@ echo "Testing subscriptions..."
 
 # Scale deployments
 echo "Scaling deployments..."
-kubectl scale deployment test-redis-ws --replicas=3 writing-client --replicas=1 streaming-client --replicas=3
+kubectl scale deployment test-redis-ws --replicas=3 streaming-client --replicas=3
+
+# Restart writer job
+echo "Starting writer job..."
+kubectl delete job writing-client 2>/dev/null
+kubectl apply -f writing.yaml
 
 # Wait for pods
 echo "Waiting for pods..."
