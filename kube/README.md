@@ -17,10 +17,14 @@ kubectl apply -f streaming.yaml
 kubectl apply -f writing.yaml
 ```
 
-## Restart Writer Job
+## Run the Writer Job
+See https://kubernetes.io/docs/concepts/workloads/controllers/job/
+
 ```bash
-# Writers run as a Job, so delete and recreate to run again
+# The Writers will be cleaned up automatically 60s after completion. You can delete it explicitly like this:
 kubectl delete job writing-client
+
+# Start the job.
 kubectl apply -f writing.yaml
 ```
 

@@ -7,6 +7,7 @@ metadata:
     app: writing-client
 spec:
   parallelism: 1
+  ttlSecondsAfterFinished: 60
   template:
     metadata:
       labels:
