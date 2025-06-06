@@ -4,3 +4,13 @@
 *.egg-info
 
 kube/subscription.log
+
+# Python cache
+__pycache__/
+locust/__pycache__/
+
+# Editor files
+*.swp
+
+# Log files
+*.log
