@@ -17,6 +17,9 @@ pixi run locust -f writer_load_test.py --host http://localhost:8000 --headless -
 # Run multiple test files together
 pixi run locust -f locust/writer_load_test.py,locust/websocket_load_test.py --host http://localhost:8000
 
+# Run end-to-end latency test (measures write to WebSocket delivery time)
+pixi run locust -f locust/e2e_latency_test.py --host http://localhost:8000
+
 # Test against Kubernetes
 
 # First, deploy test-redis-ws to Kubernetes
