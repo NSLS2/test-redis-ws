@@ -9,26 +9,26 @@ from datetime import datetime
 import random
 
 class E2ELatencyUser(HttpUser, SocketIOUser):
-    """User that measures write-to-read latency"""
-    wait_time = between(0.5, 1)  # Give time for messages to arrive
+    """Measures true end-to-end latency from write to websocket delivery"""
+    wait_time = between(0.5, 1)
 
     def on_start(self):
-        # Use random node_id.
+        # Random node_id for each user
         self.node_id = random.randint(100000, 999999)
-        self.writes = {}  # Track writes waiting for reads
+        self.writes = {}
         self.latencies = []
-        self.seq_num = 0  # Sequential counter for write values
+        self.seq_num = 0
         self.messages_received = 0
-        self.writes_expired = 0  # Track writes that timed out
+        self.writes_expired = 0
 
-        # Connect WebSocket for reading - don't request historical data
+        # Start websocket connection
         ws_url = f"ws://{self.host.replace('http://', '').replace('https://', '')}/stream/single/{self.node_id}?envelope_format=msgpack"
         self.connect(ws_url)
         logging.info(f"Connected to WebSocket for node {self.node_id}")
 
 
     def on_message(self, message):
-        """Handle incoming WebSocket messages and calculate latency"""
+        """Process websocket messages and measure latency"""
         try:
             received_time = time.time()
 
@@ -39,13 +39,12 @@ class E2ELatencyUser(HttpUser, SocketIOUser):
 
             self.messages_received += 1
 
-            # Extract the payload and decode our seq_num from it
+            # Pull out seq_num from the payload
             payload = data.get('payload', [])
             if payload and len(payload) > 0:
-                # The seq_num we wrote is the value in the numpy array
                 our_seq_num = int(payload[0])
 
-                # Check if we're tracking this message
+                # Match it with the write
                 if our_seq_num in self.writes:
                     write_time = self.writes[our_seq_num]
                     latency_ms = (received_time - write_time) * 1000
@@ -53,7 +52,6 @@ class E2ELatencyUser(HttpUser, SocketIOUser):
                     logging.info(f"E2E latency for our seq_num {our_seq_num} (server sequence {data.get('sequence')}): {latency_ms:.1f}ms")
                     self.latencies.append(latency_ms)
 
-                    # Report to Locust
                     events.request.fire(
                         request_type="E2E",
                         name="write_to_websocket_delivery",
@@ -62,7 +60,6 @@ class E2ELatencyUser(HttpUser, SocketIOUser):
                         exception=None
                     )
 
-                    # Clean up tracking
                     del self.writes[our_seq_num]
 
         except Exception as e:
@@ -70,17 +67,16 @@ class E2ELatencyUser(HttpUser, SocketIOUser):
 
     @task
     def write_and_measure(self):
-        """Write data and track when it arrives via WebSocket"""
-        # Use incrementing counter for write value
+        """Write data and wait for it to come back via websocket"""
+        # Encode seq_num in the data itself
         binary_data = (np.ones(5) * self.seq_num).tobytes()
 
-        # Track this write BEFORE sending (to handle race condition)
+        # Start timing before the write
         write_time = time.time()
         self.writes[self.seq_num] = write_time
         current_seq = self.seq_num
         self.seq_num += 1
 
-        # Write data
         response = self.client.post(
             f"/upload/{self.node_id}",
             data=binary_data,
@@ -91,15 +87,15 @@ class E2ELatencyUser(HttpUser, SocketIOUser):
         if response.status_code == 200:
             logging.info(f"Wrote message with our seq_num {current_seq} to node {self.node_id}")
         else:
-            # Remove from tracking if write failed
+            # Don't track failed writes
             if current_seq in self.writes:
                 del self.writes[current_seq]
 
     def on_stop(self):
-        # Log final statistics
+        # Summary stats
         logging.info(f"User {self.node_id} stats: writes={self.seq_num}, messages_received={self.messages_received}, "
                     f"matched={len(self.latencies)}, expired={self.writes_expired}, in_flight={len(self.writes)}")
 
-        # Disconnect WebSocket
+        # Clean up websocket
         if hasattr(self, 'ws') and self.ws:
             self.ws.close()
