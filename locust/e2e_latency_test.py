@@ -1,7 +1,3 @@
-"""
-End-to-end latency test that measures time from write to WebSocket delivery
-"""
-
 from locust import HttpUser, task, between, events
 from locust_plugins.users.socketio import SocketIOUser
 import numpy as np
@@ -22,6 +18,8 @@ class E2ELatencyUser(HttpUser, SocketIOUser):
         self.writes = {}  # Track writes waiting for reads
         self.latencies = []
         self.seq_num = 0  # Sequential counter for write values
+        self.messages_received = 0
+        self.writes_expired = 0  # Track writes that timed out
 
         # Connect WebSocket for reading - don't request historical data
         ws_url = f"ws://{self.host.replace('http://', '').replace('https://', '')}/stream/single/{self.node_id}?envelope_format=msgpack"
@@ -39,7 +37,7 @@ class E2ELatencyUser(HttpUser, SocketIOUser):
             else:
                 data = json.loads(message)
 
-            logging.debug(f"Received message: sequence={data.get('sequence')}, payload_len={len(data.get('payload', []))}")
+            self.messages_received += 1
 
             # Extract the payload and decode our seq_num from it
             payload = data.get('payload', [])
@@ -66,9 +64,6 @@ class E2ELatencyUser(HttpUser, SocketIOUser):
 
                     # Clean up tracking
                     del self.writes[our_seq_num]
-                else:
-                    # Message arrived but we're no longer tracking it (too late)
-                    logging.debug(f"Received seq_num {our_seq_num} but not tracking (writes in flight: {len(self.writes)})")
 
         except Exception as e:
             logging.error(f"Error processing message: {e}")
@@ -76,10 +71,14 @@ class E2ELatencyUser(HttpUser, SocketIOUser):
     @task
     def write_and_measure(self):
         """Write data and track when it arrives via WebSocket"""
-        write_time = time.time()
-
         # Use incrementing counter for write value
         binary_data = (np.ones(5) * self.seq_num).tobytes()
+
+        # Track this write BEFORE sending (to handle race condition)
+        write_time = time.time()
+        self.writes[self.seq_num] = write_time
+        current_seq = self.seq_num
+        self.seq_num += 1
 
         # Write data
         response = self.client.post(
@@ -90,11 +89,17 @@ class E2ELatencyUser(HttpUser, SocketIOUser):
         )
 
         if response.status_code == 200:
-            # Track this write using our seq_num (which is encoded in the data)
-            self.writes[self.seq_num] = write_time
-            logging.info(f"Wrote message with our seq_num {self.seq_num} to node {self.node_id}")
-            self.seq_num += 1
+            logging.info(f"Wrote message with our seq_num {current_seq} to node {self.node_id}")
+        else:
+            # Remove from tracking if write failed
+            if current_seq in self.writes:
+                del self.writes[current_seq]
 
     def on_stop(self):
+        # Log final statistics
+        logging.info(f"User {self.node_id} stats: writes={self.seq_num}, messages_received={self.messages_received}, "
+                    f"matched={len(self.latencies)}, expired={self.writes_expired}, in_flight={len(self.writes)}")
+
         # Disconnect WebSocket
-        self.disconnect()
+        if hasattr(self, 'ws') and self.ws:
+            self.ws.close()
