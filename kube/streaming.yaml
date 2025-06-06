@@ -1,0 +1,34 @@
+# Streaming Client Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streaming-client
+  labels:
+    app: streaming-client
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: streaming-client
+  template:
+    metadata:
+      labels:
+        app: streaming-client
+        streaming: "true"
+    spec:
+      containers:
+        - name: streaming-client
+          image: ghcr.io/nsls2/streaming-client:kube
+          imagePullPolicy: Always
+          env:
+            - name: REDIS_WS_API_URL
+              value: "test-redis-ws:8000"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "10m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"

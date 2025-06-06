@@ -1,0 +1,20 @@
+FROM ghcr.io/prefix-dev/pixi:latest
+
+WORKDIR /app
+
+# Copy pixi files
+COPY pixi.toml pixi.lock ./
+
+# Install dependencies using pixi
+RUN pixi install
+
+# Copy the writing client
+COPY writing_client.py .
+
+# Set default environment variables
+ENV REDIS_WS_API_URL=localhost:8000
+ENV WRITE_DELAY=0.5
+ENV NUM_WRITES=10
+
+# Run the writing client
+CMD ["pixi", "run", "python", "writing_client.py"]

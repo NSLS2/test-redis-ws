@@ -1,0 +1,37 @@
+# Writing Client Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: writing-client
+  labels:
+    app: writing-client
+spec:
+  parallelism: 1
+  ttlSecondsAfterFinished: 60
+  template:
+    metadata:
+      labels:
+        app: writing-client
+        streaming: "true"
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: writing-client
+          image: ghcr.io/nsls2/writing-client:kube
+          imagePullPolicy: Always
+          env:
+            - name: REDIS_WS_API_URL
+              value: "test-redis-ws:8000"
+            - name: WRITE_DELAY
+              value: "0.5"
+            - name: NUM_WRITES
+              value: "2"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "10m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"

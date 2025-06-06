@@ -121,9 +121,9 @@ def build_app(settings: Settings):
                                  node_id: str,
                                  envelope_format: str = "json",
                                  seq_num: Optional[int] = None):
-        await websocket.accept(headers={
-            "X-Server-Host": socket.gethostname()
-        })
+        await websocket.accept(headers=[
+            (b"x-server-host", socket.gethostname().encode())
+        ])
         end_stream = asyncio.Event()
         async def stream_data(seq_num):
             key = f"data:{node_id}:{seq_num}"

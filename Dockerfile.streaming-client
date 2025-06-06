@@ -1,0 +1,18 @@
+FROM ghcr.io/prefix-dev/pixi:latest
+
+WORKDIR /app
+
+# Copy pixi files
+COPY pixi.toml pixi.lock ./
+
+# Install dependencies using pixi
+RUN pixi install
+
+# Copy the streaming client
+COPY streaming_client.py .
+
+# Set default environment variable
+ENV REDIS_WS_API_URL=localhost:8000
+
+# Run the streaming client
+CMD ["pixi", "run", "python", "streaming_client.py"]

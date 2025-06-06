@@ -2,3 +2,5 @@
 # pixi environments
 .pixi
 *.egg-info
+
+kube/subscription.log

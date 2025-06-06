@@ -4,6 +4,7 @@ import websockets
 import numpy as np
 import json
 import msgpack
+import os
 # from httpx_ws import aconnect_ws
 # from httpx_ws.transport import ASGIWebSocketTransport
 
@@ -25,15 +26,19 @@ import msgpack
 #         transport=ASGIWebSocketTransport(app=app), base_url="http://localhost"
 #     )
 
-client = AsyncClient(base_url="http://localhost:8000")
+# Get base URL from environment variable, default to localhost
+REDIS_WS_API_URL = os.getenv("REDIS_WS_API_URL", "localhost:8000")
+client = AsyncClient(base_url=f"http://{REDIS_WS_API_URL}")
 
+print("streaming_client starting")
 
 async def get_live():
     result = await client.get("/stream/live")
     return result.json()
 
 async def stream_node(node_id: str, envelope_format="json"):
-    websocket_url = f"ws://localhost:8000/stream/single/{node_id}?envelope_format={envelope_format}&seq_num=1"
+    # Create WebSocket URL from base URL
+    websocket_url = f"ws://{REDIS_WS_API_URL}/stream/single/{node_id}?envelope_format={envelope_format}&seq_num=1"
 
     async with websockets.connect(websocket_url) as websocket:
         print(f"Connected to {websocket_url}")
