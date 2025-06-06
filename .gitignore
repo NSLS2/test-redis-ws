@@ -11,3 +11,6 @@ locust/__pycache__/
 
 # Editor files
 *.swp
+
+# Log files
+*.log

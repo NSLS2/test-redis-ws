@@ -31,3 +31,18 @@ kubectl port-forward service/test-redis-ws 8000:8000
 # Run Locust tests
 pixi run locust -f writer_load_test.py --host http://localhost:8000
 ```
+
+## Logging Configuration
+
+By default, Locust logs to stderr with INFO level.
+
+```bash
+# Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+pixi run locust -f writer_load_test.py --host http://localhost:8000 --loglevel INFO
+
+# Write logs to file (default: stderr)
+pixi run locust -f writer_load_test.py --host http://localhost:8000 --logfile locust.log
+
+# Both log level and file
+pixi run locust -f writer_load_test.py --host http://localhost:8000 --loglevel DEBUG --logfile debug.log
+```

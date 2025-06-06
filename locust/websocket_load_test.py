@@ -3,6 +3,7 @@ from locust_plugins.users.socketio import SocketIOUser
 import time
 import json
 import msgpack
+import logging
 
 class StreamingUser(SocketIOUser):
     """User that streams data from test-redis-ws"""
@@ -27,11 +28,11 @@ class StreamingUser(SocketIOUser):
         # Handle different message formats
         if isinstance(message, bytes) and self.envelope_format == 'msgpack':
             parsed_message = msgpack.unpackb(message)
-            print(f"Received Msgpack: {parsed_message}")
+            logging.info(f"Received Msgpack: {parsed_message}")
             self.messages.append(parsed_message)
         else:
             parsed_message = json.loads(message)
-            print(f"Received JSON: {parsed_message}")
+            logging.info(f"Received JSON: {parsed_message}")
             self.messages.append(parsed_message)
 
     @task
@@ -45,7 +46,7 @@ class StreamingUser(SocketIOUser):
         while len(self.messages) < 5 and time.time() - start_time < 10:
             time.sleep(0.1)
 
-        print(f"Received {len(self.messages)} messages in this task")
+        logging.info(f"Received {len(self.messages)} messages in this task")
 
         # Small delay between tasks
         self.sleep_with_heartbeat(1)
