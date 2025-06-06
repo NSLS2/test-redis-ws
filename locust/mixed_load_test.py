@@ -1,11 +1,7 @@
-from locust import HttpUser, User, between
+import os
 from writer_load_test import WriterUser
 from websocket_load_test import StreamingUser
 
-# Set weights for user distribution
-WriterUser.weight = 70  # 70% of users
-StreamingUser.weight = 30  # 30% of users
-
-# Alternative: fixed counts
-# WriterUser.fixed_count = 20
-# StreamingUser.fixed_count = 10
+# Set weights from environment variables (default to equal distribution)
+WriterUser.weight = int(os.getenv('WRITER_WEIGHT', 1))
+StreamingUser.weight = int(os.getenv('STREAMING_WEIGHT', 1))

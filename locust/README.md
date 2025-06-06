@@ -18,7 +18,10 @@ pixi run locust -f writer_load_test.py --host http://localhost:8000 --headless -
 pixi run locust -f locust/writer_load_test.py,locust/websocket_load_test.py --host http://localhost:8000
 
 # Run with weighted distribution (70% writers, 30% websocket)
-pixi run locust -f locust/mixed_load_test.py --host http://localhost:8000
+WRITER_WEIGHT=70 STREAMING_WEIGHT=30 pixi run locust -f locust/mixed_load_test.py --host http://localhost:8000
+
+# Run with different ratio (4:1)
+WRITER_WEIGHT=4 STREAMING_WEIGHT=1 pixi run locust -f locust/mixed_load_test.py --host http://localhost:8000
 
 # Run end-to-end latency test (measures write to WebSocket delivery time)
 pixi run locust -f locust/e2e_latency_test.py --host http://localhost:8000
