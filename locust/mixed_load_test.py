@@ -1,6 +1,6 @@
 import os
 import random
-from locust import HttpUser, task, between
+from locust import HttpUser, task, between, events
 from locust_plugins.users.socketio import SocketIOUser
 import numpy as np
 import time
@@ -23,7 +23,7 @@ class WriterUser(HttpUser):
     def write_data(self):
 
         # Create data with incrementing value
-        binary_data = (np.ones(5) * self.message_count).tobytes()
+        binary_data = (np.ones(5) * time.time()).tobytes()
 
         # Post data and check response
         response = self.client.post(
@@ -59,6 +59,7 @@ class StreamingUser(SocketIOUser):
         self.node_id = 481980
         self.message_count = 0
         self.messages = []
+        self.messages_received = 0
         self.envelope_format = "msgpack"  # or "json"
 
         # Connect to WebSocket endpoint (no seq_num = only new messages)
@@ -66,18 +67,36 @@ class StreamingUser(SocketIOUser):
         self.connect(ws_url)
 
     def on_message(self, message):
-        """Handle incoming messages"""
-        self.message_count += 1
+        """Process websocket messages and measure latency"""
+        try:
+            received_time = time.time()
 
-        # Handle different message formats
-        if isinstance(message, bytes) and self.envelope_format == 'msgpack':
-            parsed_message = msgpack.unpackb(message)
-            logging.info(f"Received Msgpack: {parsed_message}")
-            self.messages.append(parsed_message)
-        else:
-            parsed_message = json.loads(message)
-            logging.info(f"Received JSON: {parsed_message}")
-            self.messages.append(parsed_message)
+            if isinstance(message, bytes):
+                data = msgpack.unpackb(message)
+            else:
+                data = json.loads(message)
+
+            self.messages_received += 1
+
+            # Pull out timestamp from the payload
+            payload = data.get('payload', [])
+            if payload and len(payload) > 0:
+                write_time = float(payload[0])
+                latency_ms = (received_time - write_time) * 1000
+
+                logging.info(f"E2E latency (server sequence {data.get('sequence')}): {latency_ms:.1f}ms")
+
+                events.request.fire(
+                    request_type="E2E",
+                    name="write_to_websocket_delivery",
+                    response_time=latency_ms,
+                    response_length=0,
+                    exception=None
+                )
+
+        except Exception as e:
+            logging.error(f"Error processing message: {e}")
+
 
     @task
     def wait_for_messages(self):
