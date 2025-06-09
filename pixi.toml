@@ -20,6 +20,8 @@ httpx = "*"
 uvicorn = "*"
 httpx-ws = "*"
 locust = "*"
+black = "*"
+ruff = "*"
 
 [pypi-dependencies]
 msgpack = "*"

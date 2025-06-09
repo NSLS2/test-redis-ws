@@ -10,7 +10,7 @@ import logging
 
 class WriterUser(HttpUser):
     wait_time = between(0.1, 0.2)  # Wait 0.1-0.2 seconds between writes
-    weight = int(os.getenv('WRITER_WEIGHT', 1))
+    weight = int(os.getenv("WRITER_WEIGHT", 1))
 
     def on_start(self):
         """Initialize user state"""
@@ -28,7 +28,7 @@ class WriterUser(HttpUser):
         response = self.client.post(
             f"/upload/{self.node_id}",
             data=binary_data,
-            headers={"Content-Type": "application/octet-stream"}
+            headers={"Content-Type": "application/octet-stream"},
         )
 
         # Log status like writing_client
@@ -36,7 +36,9 @@ class WriterUser(HttpUser):
             logging.info(f"Wrote message {self.message_count} to node {self.node_id}")
             self.message_count += 1
         else:
-            logging.error(f"Failed to write message {self.message_count}: {response.status_code}")
+            logging.error(
+                f"Failed to write message {self.message_count}: {response.status_code}"
+            )
 
     @task
     def cleanup(self):
@@ -49,8 +51,9 @@ class WriterUser(HttpUser):
 
 class StreamingUser(SocketIOUser):
     """User that streams data from test-redis-ws"""
+
     wait_time = between(0.1, 0.2)
-    weight = int(os.getenv('STREAMING_WEIGHT', 1))
+    weight = int(os.getenv("STREAMING_WEIGHT", 1))
 
     def on_start(self):
         """Connect to the streaming endpoint"""
@@ -58,7 +61,7 @@ class StreamingUser(SocketIOUser):
         self.node_id = 481980
         self.envelope_format = "msgpack"  # or "json"
 
-        # Connect to WebSocket endpoint (no seq_num = only new messages)
+        # Connect to WebSocket endpoint
         ws_url = f"ws://{self.host.replace('http://', '').replace('https://', '')}/stream/single/{self.node_id}?envelope_format={self.envelope_format}"
         self.connect(ws_url)
 
@@ -72,21 +75,22 @@ class StreamingUser(SocketIOUser):
             else:
                 data = json.loads(message)
 
-
             # Pull out timestamp from the payload
-            payload = data.get('payload', [])
+            payload = data.get("payload", [])
             if payload and len(payload) > 0:
                 write_time = float(payload[0])
                 latency_ms = (received_time - write_time) * 1000
 
-                logging.info(f"WS latency (server sequence {data.get('sequence')}): {latency_ms:.1f}ms")
+                logging.info(
+                    f"WS latency (server sequence {data.get('sequence')}): {latency_ms:.1f}ms"
+                )
 
                 events.request.fire(
                     request_type="WS",
                     name="write_to_websocket_delivery",
                     response_time=latency_ms,
                     response_length=0,
-                    exception=None
+                    exception=None,
                 )
 
         except Exception as e:
@@ -96,4 +100,3 @@ class StreamingUser(SocketIOUser):
     def keep_alive(self):
         """Dummy task to keep the user active while listening for messages"""
         pass
-

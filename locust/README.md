@@ -27,11 +27,6 @@ WRITER_WEIGHT=4 STREAMING_WEIGHT=1 pixi run locust -f locust/mixed_load_test.py 
 pixi run locust -f locust/mixed_load_test.py --host http://localhost:8000 --loglevel WARNING
 pixi run locust -f locust/mixed_load_test.py --host http://localhost:8000 -L ERROR
 
-# Run end-to-end latency test (measures write to WebSocket delivery time)
-pixi run locust -f locust/e2e_latency_test.py --host http://localhost:8000
-
-# Test against Kubernetes
-
 # First, deploy test-redis-ws to Kubernetes
 kubectl apply -f ../kube/server.yaml
 
