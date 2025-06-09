@@ -62,14 +62,14 @@ def build_app(settings: Settings):
         # Generate a random node_id.
         # (In Tiled, PostgreSQL will give us a unique ID.)
         node_id = np.random.randint(1_000_000)
-        await kv.create(f"seq_num:{node_id}", b"0")
+        await kv.create(f"seq_num.{node_id}", b"0")
         return {"node_id": node_id}
 
     @app.delete("/upload/{node_id}", status_code=204)
     async def close(node_id):
         await nats_ready.wait()
         kv: KeyValue = nats_state["kv"]
-        await kv.delete(f"seq_num:{node_id}")
+        await kv.delete(f"seq_num.{node_id}")
         return None
 
     @app.post("/upload/{node_id}")
@@ -84,7 +84,7 @@ def build_app(settings: Settings):
         metadata.setdefault("Content-Type", headers.get("Content-Type"))
 
         # Increment the counter for this node.
-        seq_key = f"seq_num:{node_id}"
+        seq_key = f"seq_num.{node_id}"
         try:
             seq_num = int((await kv.get(seq_key)).value.decode())
         except KeyNotFoundError:
@@ -93,7 +93,7 @@ def build_app(settings: Settings):
         await kv.put(seq_key, str(seq_num).encode())
 
         # Store data in KV
-        data_key = f"data:{node_id}:{seq_num}"
+        data_key = f"data.{node_id}.{seq_num}"
         value = {
             "metadata": metadata,
             "payload": binary_data.hex(),  # Store as hex string
@@ -119,7 +119,7 @@ def build_app(settings: Settings):
         }
         metadata.setdefault("Content-Type", headers.get("Content-Type"))
 
-        seq_key = f"seq_num:{node_id}"
+        seq_key = f"seq_num.{node_id}"
         seq_num = int((await kv.get(seq_key)).value.decode())
         seq_num += 1
         await kv.put(seq_key, str(seq_num).encode())
@@ -197,7 +197,7 @@ def build_app(settings: Settings):
         live_task = asyncio.create_task(buffer_live_events())
 
         if seq_num is not None:
-            current_seq = int((await kv.get(f"seq_num:{node_id}")).value.decode())
+            current_seq = int((await kv.get(f"seq_num.{node_id}")).value.decode())
             for s in range(seq_num, current_seq + 1):
                 await stream_data(s)
         try:
@@ -216,7 +216,7 @@ def build_app(settings: Settings):
         await nats_ready.wait()
         kv: KeyValue = nats_state["kv"]
         keys = await kv.keys()
-        nodes = [key.split(":")[1] for key in keys if key.startswith("seq_num:")]
+        nodes = [key.split(".")[1] for key in keys if key.startswith("seq_num.")]
         return nodes
 
     return app
