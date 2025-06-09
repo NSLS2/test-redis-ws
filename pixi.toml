@@ -7,6 +7,7 @@ version = "0.1.0"
 
 [tasks]
 serve = "python server.py"
+serve-nats = "python server_nats.py"
 stream = "python streaming_client.py"
 write = "python writing_client.py"
 
@@ -22,3 +23,9 @@ httpx-ws = "*"
 
 [pypi-dependencies]
 msgpack = "*"  
+
+[feature.nats_kv.dependencies]
+nats-py = "*"
+
+[environments]
+nats = ["nats_kv"]
