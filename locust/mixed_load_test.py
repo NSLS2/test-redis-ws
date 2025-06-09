@@ -1,5 +1,4 @@
 import os
-import random
 from locust import HttpUser, task, between, events
 from locust_plugins.users.socketio import SocketIOUser
 import numpy as np
@@ -57,9 +56,6 @@ class StreamingUser(SocketIOUser):
         """Connect to the streaming endpoint"""
         # Use the same node_id as WriterUser
         self.node_id = 481980
-        self.message_count = 0
-        self.messages = []
-        self.messages_received = 0
         self.envelope_format = "msgpack"  # or "json"
 
         # Connect to WebSocket endpoint (no seq_num = only new messages)
@@ -76,7 +72,6 @@ class StreamingUser(SocketIOUser):
             else:
                 data = json.loads(message)
 
-            self.messages_received += 1
 
             # Pull out timestamp from the payload
             payload = data.get('payload', [])
@@ -84,10 +79,10 @@ class StreamingUser(SocketIOUser):
                 write_time = float(payload[0])
                 latency_ms = (received_time - write_time) * 1000
 
-                logging.info(f"E2E latency (server sequence {data.get('sequence')}): {latency_ms:.1f}ms")
+                logging.info(f"WS latency (server sequence {data.get('sequence')}): {latency_ms:.1f}ms")
 
                 events.request.fire(
-                    request_type="E2E",
+                    request_type="WS",
                     name="write_to_websocket_delivery",
                     response_time=latency_ms,
                     response_length=0,
@@ -97,19 +92,8 @@ class StreamingUser(SocketIOUser):
         except Exception as e:
             logging.error(f"Error processing message: {e}")
 
-
     @task
-    def wait_for_messages(self):
-        """Wait for streaming messages"""
-        # Clear previous messages
-        self.messages = []
+    def keep_alive(self):
+        """Dummy task to keep the user active while listening for messages"""
+        pass
 
-        # Wait for messages to arrive
-        start_time = time.time()
-        while len(self.messages) < 5 and time.time() - start_time < 10:
-            time.sleep(0.1)
-
-        logging.info(f"Received {len(self.messages)} messages in this task")
-
-        # Small delay between tasks
-        self.sleep_with_heartbeat(1)
