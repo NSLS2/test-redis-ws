@@ -40,3 +40,27 @@ To verify load balancing is working, run this command to see requests distribute
 ```sh
 for i in {1..20}; do curl -s -D - http://localhost:8000/stream/live 2>/dev/null | grep X-Server-Host; done | sort
 ```
+
+## NATS
+
+Aka the better MQ, because it also has kv, and ... object store :D
+
+### NATS server with jetstream
+
+```shell
+docker run -d --name nats-js -p 4222:4222 -p 8222:8222 nats:latest -js
+```
+
+### usage
+
+Use the same writer and stream clients as with the Redis example.
+
+Note: This is done quick and dirty and is a pure proof of concept!
+It's failing hard and there are more uncovered edge cases than actually working cases.
+
+Follow these steps:
+
+1. start the NATS kv
+2. start the "server" --> `pixi run -e nats serve-nats`
+3. `pixi run write`
+4. `pixi run stream`
