@@ -6,6 +6,7 @@ import time
 import json
 import msgpack
 import logging
+import httpx
 
 
 class WriterUser(HttpUser):
@@ -32,7 +33,7 @@ class WriterUser(HttpUser):
         )
 
         # Log status like writing_client
-        if response.status_code == 200:
+        if response.status_code == httpx.codes.OK:
             logging.info(f"Wrote message {self.message_count} to node {self.node_id}")
             self.message_count += 1
         else:
