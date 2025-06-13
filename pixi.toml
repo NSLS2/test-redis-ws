@@ -2,7 +2,7 @@
 authors = ["Hiran Wijesinghe <wwijesing1@bnl.gov>"]
 channels = ["conda-forge"]
 name = "test-redis-ws"
-platforms = ["linux-64", "osx-arm64"]
+platforms = ["linux-64", "osx-arm64", "osx-64"]
 version = "0.1.0"
 
 [tasks]
@@ -19,6 +19,9 @@ pydantic = "*"
 httpx = "*"
 uvicorn = "*"
 httpx-ws = "*"
+locust = "*"
+ruff = "*"
 
 [pypi-dependencies]
-msgpack = "*"  
+msgpack = "*"
+locust-plugins = {extras = ["websocket"], version = "*"}
