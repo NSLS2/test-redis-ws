@@ -40,3 +40,25 @@ To verify load balancing is working, run this command to see requests distribute
 ```sh
 for i in {1..20}; do curl -s -D - http://localhost:8000/stream/live 2>/dev/null | grep X-Server-Host; done | sort
 ```
+
+## Running Tests
+
+### Prerequisites
+
+Before running tests, start Redis:
+
+```sh
+# Option 1: Using Docker
+docker run --name test-redis -p 6379:6379 -d redis:latest
+
+# Option 2: Using the project's Redis configuration
+docker run --net=host --rm -v ./redis:/usr/local/etc/redis --name test-redis redis redis-server /usr/local/etc/redis/redis.conf
+```
+
+### Run the Test Suite
+
+```sh
+pixi run test
+```
+
+**Note**: Tests will automatically clear Redis before each test to ensure clean state.
