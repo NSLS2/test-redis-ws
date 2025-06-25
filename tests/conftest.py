@@ -45,4 +45,4 @@ async def test_client(test_app):
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
         # Brief pause to allow cleanup
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.01)

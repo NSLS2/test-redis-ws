@@ -4,7 +4,6 @@ import numpy as np
 import uvicorn
 from pydantic_settings import BaseSettings
 from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect
-from pydantic import BaseModel
 from datetime import datetime
 import msgpack
 import asyncio
@@ -27,21 +26,21 @@ def build_app(settings: Settings):
         return response
 
     @app.post("/upload")
-    def create():
+    async def create():
         "Declare a new dataset."
 
         # Generate a rnadom node_id.
         # (In Tiled, PostgreSQL will give us a unique ID.)
         node_id = np.random.randint(1_000_000)
         # Allocate a counter for this node_id.
-        redis_client.setnx(f"seq_num:{node_id}", 0)
+        await redis_client.setnx(f"seq_num:{node_id}", 0)
         return {"node_id": node_id}
 
     @app.delete("/upload/{node_id}", status_code=204)
-    def close(node_id):
+    async def close(node_id):
         "Declare that a dataset is done streaming."
 
-        redis_client.delete(f"seq_num:{node_id}")
+        await redis_client.delete(f"seq_num:{node_id}")
         # TODO: Shorten TTL on all extant data for this node.
         return None
 
@@ -63,7 +62,6 @@ def build_app(settings: Settings):
         # Cache data in Redis with a TTL, and publish
         # a notification about it.
         pipeline = redis_client.pipeline()
-        print(f"Setting pipeline metadata: {json.dumps(metadata).encode("utf-8")}")
         pipeline.hset(
             f"data:{node_id}:{seq_num}",
             mapping={
@@ -98,7 +96,6 @@ def build_app(settings: Settings):
         # Cache data in Redis with a TTL, and publish
         # a notification about it.
         pipeline = redis_client.pipeline()
-        print(f"Setting pipeline metadata: {json.dumps(metadata).encode("utf-8")}")
         pipeline.hset(
             f"data:{node_id}:{seq_num}",
             mapping={
@@ -132,7 +129,7 @@ def build_app(settings: Settings):
                 return
             try:
                 payload = np.frombuffer(payload, dtype=np.float64).tolist()
-            except Exception as e:
+            except Exception:
                 payload = json.loads(payload)
             data = { "sequence": seq_num,
                       "metadata": metadata.decode('utf-8'),
