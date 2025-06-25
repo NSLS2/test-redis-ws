@@ -161,26 +161,35 @@ def build_app(settings: Settings):
                         try:
                             live_seq = int(message["data"])
                             await stream_buffer.put(live_seq)
-                        except Exception as e:
-                            print(f"Error parsing live message: {e}")
+                        except Exception:
+                            break  # Exit loop on error
             except asyncio.CancelledError:
-                print(f"Live subscription cancelled for node {node_id}")
-                raise  # Re-raise to properly handle cancellation
+                # Don't re-raise, just clean up
+                pass
             except Exception as e:
                 print(f"Live subscription error: {e}")
             finally:
+                # More robust cleanup with timeouts
                 try:
-                    await pubsub.unsubscribe(f"notify:{node_id}")
-                    await pubsub.aclose()
-                    await ws_redis_client.aclose()  # Close the dedicated Redis client
-                except Exception as e:
-                    print(f"Error closing pubsub/redis: {e}")
+                    await asyncio.wait_for(pubsub.unsubscribe(f"notify:{node_id}"), timeout=1.0)
+                except (asyncio.TimeoutError, Exception):
+                    pass
+                
+                try:
+                    await asyncio.wait_for(pubsub.aclose(), timeout=1.0)
+                except (asyncio.TimeoutError, Exception):
+                    pass
+                
+                try:
+                    await asyncio.wait_for(ws_redis_client.aclose(), timeout=1.0)
+                except (asyncio.TimeoutError, Exception):
+                    pass
         live_task = asyncio.create_task(buffer_live_events())
 
         if seq_num is not None:
             current_seq = await redis_client.get(f"seq_num:{node_id}")
             current_seq = int(current_seq) if current_seq is not None else 0
-            print("Replaying old data...")
+            # Replay old data
             for s in range(seq_num, current_seq + 1):
                 await stream_data(s)
         # New data
@@ -191,16 +200,18 @@ def build_app(settings: Settings):
             else:
                 await websocket.close(code=1000, reason="Producer ended stream")
         except WebSocketDisconnect:
-            print(f"Client disconnected from node {node_id}")
+            pass
         finally:
-            # Properly cancel and wait for the live task to cleanup
+            # Properly cancel and wait for the live task to cleanup with timeout
             live_task.cancel()
             try:
-                await live_task
+                await asyncio.wait_for(live_task, timeout=2.0)
             except asyncio.CancelledError:
                 pass  # Expected when cancelling
-            except Exception as e:
-                print(f"Error during live task cleanup: {e}")
+            except asyncio.TimeoutError:
+                pass
+            except Exception:
+                pass
 
     @app.get("/stream/live")
     async def list_live_streams():
