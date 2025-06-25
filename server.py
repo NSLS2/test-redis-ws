@@ -18,6 +18,7 @@ def build_app(settings: Settings):
     redis_client = redis.from_url(settings.redis_url)
 
     app = FastAPI()
+    app.state.redis_client = redis_client  # Store for cleanup
 
     @app.middleware("http")
     async def add_server_header(request: Request, call_next):
@@ -147,10 +148,14 @@ def build_app(settings: Settings):
 
         # Setup buffer
         stream_buffer = asyncio.Queue()
+        
+        # Create a separate Redis client for this WebSocket connection
+        ws_redis_client = redis.from_url(settings.redis_url)
+        
         async def buffer_live_events():
-            pubsub = redis_client.pubsub()
-            await pubsub.subscribe(f"notify:{node_id}")
+            pubsub = ws_redis_client.pubsub()
             try:
+                await pubsub.subscribe(f"notify:{node_id}")
                 async for message in pubsub.listen():
                     if message.get("type") == "message":
                         try:
@@ -158,11 +163,18 @@ def build_app(settings: Settings):
                             await stream_buffer.put(live_seq)
                         except Exception as e:
                             print(f"Error parsing live message: {e}")
+            except asyncio.CancelledError:
+                print(f"Live subscription cancelled for node {node_id}")
+                raise  # Re-raise to properly handle cancellation
             except Exception as e:
                 print(f"Live subscription error: {e}")
             finally:
-                await pubsub.unsubscribe(f"notify:{node_id}")
-                await pubsub.aclose()
+                try:
+                    await pubsub.unsubscribe(f"notify:{node_id}")
+                    await pubsub.aclose()
+                    await ws_redis_client.aclose()  # Close the dedicated Redis client
+                except Exception as e:
+                    print(f"Error closing pubsub/redis: {e}")
         live_task = asyncio.create_task(buffer_live_events())
 
         if seq_num is not None:
@@ -181,7 +193,14 @@ def build_app(settings: Settings):
         except WebSocketDisconnect:
             print(f"Client disconnected from node {node_id}")
         finally:
+            # Properly cancel and wait for the live task to cleanup
             live_task.cancel()
+            try:
+                await live_task
+            except asyncio.CancelledError:
+                pass  # Expected when cancelling
+            except Exception as e:
+                print(f"Error during live task cleanup: {e}")
 
     @app.get("/stream/live")
     async def list_live_streams():
