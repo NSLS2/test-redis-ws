@@ -4,9 +4,9 @@ from httpx_ws.transport import ASGIWebSocketTransport
 from server import build_app, Settings
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="session")
 async def app():
-    """Function-scoped app fixture."""
+    """Session-scoped app fixture."""
     settings = Settings(redis_url="redis://localhost:6379/0", ttl=60 * 60)
     app = build_app(settings)
     yield app
@@ -18,7 +18,7 @@ async def app():
         pass
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="session")
 async def http_client(app):
     """HTTP client fixture for API calls."""
     transport = ASGIWebSocketTransport(app=app)
