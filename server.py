@@ -9,16 +9,26 @@ import msgpack
 import asyncio
 from typing import Optional
 import socket
+from contextlib import asynccontextmanager
+
 
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     ttl: int = 60 * 60  # 1 hour
 
+
 def build_app(settings: Settings):
     redis_client = redis.from_url(settings.redis_url)
 
-    app = FastAPI()
-    app.state.redis_client = redis_client  # Store for cleanup
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Startup
+        app.state.redis_client = redis_client
+        yield
+        # Shutdown
+        await redis_client.aclose()
+
+    app = FastAPI(lifespan=lifespan)
 
     @app.middleware("http")
     async def add_server_header(request: Request, call_next):
@@ -79,17 +89,13 @@ def build_app(settings: Settings):
 
     @app.post("/close/{node_id}")
     async def close_connection(node_id: str, request: Request):
-
         # Parse the JSON body
         body = await request.json()
         headers = request.headers
 
         reason = body.get("reason", None)
 
-        metadata = {
-            "timestamp": datetime.now().isoformat(),
-            "reason": reason
-        }
+        metadata = {"timestamp": datetime.now().isoformat(), "reason": reason}
         metadata.setdefault("Content-Type", headers.get("Content-Type"))
         # Increment the counter for this node.
         seq_num = await redis_client.incr(f"seq_num:{node_id}")
@@ -110,19 +116,21 @@ def build_app(settings: Settings):
 
         return {
             "status": f"Connection for node {node_id} is now closed.",
-            "reason": reason
+            "reason": reason,
         }
 
-
     @app.websocket("/stream/single/{node_id}")  # one-way communcation
-    async def websocket_endpoint(websocket: WebSocket,
-                                 node_id: str,
-                                 envelope_format: str = "json",
-                                 seq_num: Optional[int] = None):
-        await websocket.accept(headers=[
-            (b"x-server-host", socket.gethostname().encode())
-        ])
+    async def websocket_endpoint(
+        websocket: WebSocket,
+        node_id: str,
+        envelope_format: str = "json",
+        seq_num: Optional[int] = None,
+    ):
+        await websocket.accept(
+            headers=[(b"x-server-host", socket.gethostname().encode())]
+        )
         end_stream = asyncio.Event()
+
         async def stream_data(seq_num):
             key = f"data:{node_id}:{seq_num}"
             payload, metadata = await redis_client.hmget(key, "payload", "metadata")
@@ -132,11 +140,12 @@ def build_app(settings: Settings):
                 payload = np.frombuffer(payload, dtype=np.float64).tolist()
             except Exception:
                 payload = json.loads(payload)
-            data = { "sequence": seq_num,
-                      "metadata": metadata.decode('utf-8'),
-                      "payload": payload,
-                      "server_host": socket.gethostname()
-                    }
+            data = {
+                "sequence": seq_num,
+                "metadata": metadata.decode("utf-8"),
+                "payload": payload,
+                "server_host": socket.gethostname(),
+            }
             if envelope_format == "msgpack":
                 data = msgpack.packb(data)
                 await websocket.send_bytes(data)
@@ -148,10 +157,10 @@ def build_app(settings: Settings):
 
         # Setup buffer
         stream_buffer = asyncio.Queue()
-        
+
         # Create a separate Redis client for this WebSocket connection
         ws_redis_client = redis.from_url(settings.redis_url)
-        
+
         async def buffer_live_events():
             pubsub = ws_redis_client.pubsub()
             try:
@@ -171,19 +180,22 @@ def build_app(settings: Settings):
             finally:
                 # More robust cleanup with timeouts
                 try:
-                    await asyncio.wait_for(pubsub.unsubscribe(f"notify:{node_id}"), timeout=1.0)
+                    await asyncio.wait_for(
+                        pubsub.unsubscribe(f"notify:{node_id}"), timeout=1.0
+                    )
                 except (asyncio.TimeoutError, Exception):
                     pass
-                
+
                 try:
                     await asyncio.wait_for(pubsub.aclose(), timeout=1.0)
                 except (asyncio.TimeoutError, Exception):
                     pass
-                
+
                 try:
                     await asyncio.wait_for(ws_redis_client.aclose(), timeout=1.0)
                 except (asyncio.TimeoutError, Exception):
                     pass
+
         live_task = asyncio.create_task(buffer_live_events())
 
         if seq_num is not None:
@@ -215,7 +227,6 @@ def build_app(settings: Settings):
 
     @app.get("/stream/live")
     async def list_live_streams():
-
         nodes = await redis_client.keys("seq_num:*")
         return [node.decode("utf-8").split(":")[1] for node in nodes]
 
