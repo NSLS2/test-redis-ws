@@ -165,9 +165,9 @@ def build_app(settings: Settings):
                         try:
                             live_seq = int(message["data"])
                             await stream_buffer.put(live_seq)
-                        except Exception:
-                            break  # Exit loop on error
+                        except Exception as e:
                             print(f"Error parsing live message: {e}")
+                            break  # Exit loop on error
             except asyncio.CancelledError:
                 # Don't re-raise, just clean up
                 pass

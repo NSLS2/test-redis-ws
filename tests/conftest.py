@@ -11,13 +11,10 @@ async def http_client():
     app = build_app(settings)
 
     transport = ASGIWebSocketTransport(app=app)
-    client = httpx.AsyncClient(transport=transport, base_url="http://test")
-
-    try:
-        yield client
-    finally:
-        # Clear transport exit stack to prevent cleanup issues with httpx_ws
-        if hasattr(transport, "exit_stack") and transport.exit_stack:
-            transport.exit_stack = None
-
-        await client.aclose()
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        try:
+            yield client
+        finally:
+            # This is required to clean up the transport correctly.
+            if hasattr(transport, "exit_stack") and transport.exit_stack:
+                transport.exit_stack = None
