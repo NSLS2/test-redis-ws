@@ -9,6 +9,7 @@ version = "0.1.0"
 serve = "python server.py"
 stream = "python streaming_client.py"
 write = "python writing_client.py"
+test = "pytest tests/"
 
 [dependencies]
 redis-py = "*"
@@ -21,6 +22,8 @@ uvicorn = "*"
 httpx-ws = "*"
 locust = "*"
 ruff = "*"
+pytest = "*"
+pytest-asyncio = "*"
 
 [pypi-dependencies]
 msgpack = "*"

@@ -21,7 +21,6 @@ class WriterUser(HttpUser):
 
     @task(10)  # Run 10x as often as cleanup
     def write_data(self):
-
         # Create data with incrementing value
         binary_data = (np.ones(5) * time.time()).tobytes()
 
