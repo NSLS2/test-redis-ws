@@ -99,7 +99,11 @@ async def test_subscribe_after_first_update(http_client):
 
 @pytest.mark.asyncio
 async def test_subscribe_after_first_update_from_beginning(http_client):
-    """Client that subscribes after first update but requests from seq_num=1 sees all updates."""
+    """Client that subscribes after first update but requests from seq_num=0 sees all updates.
+    
+    Note: seq_num starts at 1 for the first data point. seq_num=0 means "start as far back 
+    as you have" (similar to Bluesky social)
+    """
     # Create node
     response = await http_client.post("/upload")
     assert response.status_code == 200
@@ -117,7 +121,7 @@ async def test_subscribe_after_first_update_from_beginning(http_client):
     await asyncio.sleep(0.1)
 
     # Connect WebSocket requesting from beginning
-    async with aconnect_ws(f"/stream/single/{node_id}?seq_num=1", http_client) as ws:
+    async with aconnect_ws(f"/stream/single/{node_id}?seq_num=0", http_client) as ws:
         # First, should receive the historical update
         historical_msg = json.loads(
             await asyncio.wait_for(ws.receive_text(), timeout=2.0)
