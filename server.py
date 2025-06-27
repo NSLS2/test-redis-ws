@@ -170,8 +170,8 @@ def build_app(settings: Settings):
             except asyncio.CancelledError:
                 # Don't re-raise, just clean up
                 pass
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Live subscription error: {e}")
             finally:
                 await pubsub.unsubscribe(f"notify:{node_id}")
                 await pubsub.aclose()
@@ -192,7 +192,7 @@ def build_app(settings: Settings):
             else:
                 await websocket.close(code=1000, reason="Producer ended stream")
         except WebSocketDisconnect:
-            pass
+            print(f"Client disconnected from node {node_id}")
         finally:
             # Properly cancel and wait for the live task to cleanup with timeout
             live_task.cancel()
