@@ -167,6 +167,7 @@ def build_app(settings: Settings):
                             await stream_buffer.put(live_seq)
                         except Exception:
                             break  # Exit loop on error
+                            print(f"Error parsing live message: {e}")
             except asyncio.CancelledError:
                 # Don't re-raise, just clean up
                 pass
@@ -196,14 +197,6 @@ def build_app(settings: Settings):
         finally:
             # Properly cancel and wait for the live task to cleanup with timeout
             live_task.cancel()
-            try:
-                await asyncio.wait_for(live_task, timeout=2.0)
-            except asyncio.CancelledError:
-                pass  # Expected when cancelling
-            except asyncio.TimeoutError:
-                pass
-            except Exception:
-                pass
 
     @app.get("/stream/live")
     async def list_live_streams():
