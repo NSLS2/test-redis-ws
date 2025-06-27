@@ -15,9 +15,6 @@ async def test_subscribe_immediately_after_creation(http_client):
 
     # Connect WebSocket immediately
     async with aconnect_ws(f"/stream/single/{node_id}", http_client) as ws:
-        # Small delay to ensure WebSocket subscription is established
-        await asyncio.sleep(0.1)
-
         # Write updates
         updates = []
         for i in range(1, 4):
@@ -61,14 +58,8 @@ async def test_subscribe_after_first_update(http_client):
         headers={"Content-Type": "application/octet-stream"},
     )
 
-    # Small delay to ensure first update is processed
-    await asyncio.sleep(0.1)
-
     # Connect WebSocket after first update
     async with aconnect_ws(f"/stream/single/{node_id}", http_client) as ws:
-        # Small delay to ensure WebSocket subscription is established
-        await asyncio.sleep(0.1)
-
         # Write more updates
         updates = []
         for i in range(2, 4):
@@ -116,9 +107,6 @@ async def test_subscribe_after_first_update_from_beginning(http_client):
         content=first_data.tobytes(),
         headers={"Content-Type": "application/octet-stream"},
     )
-
-    # Small delay to ensure first update is processed
-    await asyncio.sleep(0.1)
 
     # Connect WebSocket requesting from beginning
     async with aconnect_ws(f"/stream/single/{node_id}?seq_num=0", http_client) as ws:
