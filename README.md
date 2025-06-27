@@ -57,4 +57,3 @@ docker run --net=host --rm -v ./redis:/usr/local/etc/redis --name test-redis red
 pixi run test
 ```
 
-**Note**: Tests will automatically clear Redis before each test to ensure clean state.
