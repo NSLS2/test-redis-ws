@@ -22,10 +22,8 @@ def build_app(settings: Settings):
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # Startup
-        app.state.redis_client = redis_client
         yield
-        # Shutdown
+        # Shutdown - close Redis connection
         await redis_client.aclose()
 
     app = FastAPI(lifespan=lifespan)
@@ -158,11 +156,8 @@ def build_app(settings: Settings):
         # Setup buffer
         stream_buffer = asyncio.Queue()
 
-        # Create a separate Redis client for this WebSocket connection
-        ws_redis_client = redis.from_url(settings.redis_url)
-
         async def buffer_live_events():
-            pubsub = ws_redis_client.pubsub()
+            pubsub = redis_client.pubsub()
             try:
                 await pubsub.subscribe(f"notify:{node_id}")
                 async for message in pubsub.listen():
@@ -175,26 +170,11 @@ def build_app(settings: Settings):
             except asyncio.CancelledError:
                 # Don't re-raise, just clean up
                 pass
-            except Exception as e:
-                print(f"Live subscription error: {e}")
+            except Exception:
+                pass
             finally:
-                # More robust cleanup with timeouts
-                try:
-                    await asyncio.wait_for(
-                        pubsub.unsubscribe(f"notify:{node_id}"), timeout=1.0
-                    )
-                except (asyncio.TimeoutError, Exception):
-                    pass
-
-                try:
-                    await asyncio.wait_for(pubsub.aclose(), timeout=1.0)
-                except (asyncio.TimeoutError, Exception):
-                    pass
-
-                try:
-                    await asyncio.wait_for(ws_redis_client.aclose(), timeout=1.0)
-                except (asyncio.TimeoutError, Exception):
-                    pass
+                await pubsub.unsubscribe(f"notify:{node_id}")
+                await pubsub.aclose()
 
         live_task = asyncio.create_task(buffer_live_events())
 
