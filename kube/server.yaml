@@ -99,4 +99,4 @@ spec:
       targetPort: 8000
       protocol: TCP
       name: http
-  type: NodePort
+  type: ClusterIP
