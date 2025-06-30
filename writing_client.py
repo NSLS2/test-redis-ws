@@ -17,8 +17,8 @@ NUM_WRITES = int(os.getenv("NUM_WRITES", "10"))
 
 def main():
     for run in range(3):
-        #content = client.post("/upload").raise_for_status().json()
-        #node_id = content["node_id"]
+        # content = client.post("/upload").raise_for_status().json()
+        # node_id = content["node_id"]
         node_id = 481980
         print(f"Writing {run=}")
         for i in range(NUM_WRITES):
@@ -33,9 +33,10 @@ def main():
         print(f"Completed {NUM_WRITES} writes")
         client.delete(f"/upload/{node_id}").raise_for_status()
         print(f"Deleted node {node_id}")
-    if '--close' in sys.argv:
+    if "--close" in sys.argv:
         print("Closing stream")
         client.post(f"/close/{node_id}", json={"reason": "Experiment complete"})
     print("\nWriterfinished successfully")
+
 
 main()

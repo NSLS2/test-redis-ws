@@ -1,7 +1,6 @@
-from httpx import AsyncClient, Client
+from httpx import AsyncClient
 import asyncio
 import websockets
-import numpy as np
 import json
 import msgpack
 import os
@@ -32,9 +31,11 @@ client = AsyncClient(base_url=f"http://{REDIS_WS_API_URL}")
 
 print("streaming_client starting")
 
+
 async def get_live():
     result = await client.get("/stream/live")
     return result.json()
+
 
 async def stream_node(node_id: str, envelope_format="json"):
     # Create WebSocket URL from base URL
@@ -46,7 +47,7 @@ async def stream_node(node_id: str, envelope_format="json"):
         try:
             while True:
                 message = await websocket.recv()
-                if isinstance(message, bytes) and envelope_format == 'msgpack':
+                if isinstance(message, bytes) and envelope_format == "msgpack":
                     message = msgpack.unpackb(message)
                     print(f"Received Msgpack: {message}")
                 else:
@@ -58,6 +59,7 @@ async def stream_node(node_id: str, envelope_format="json"):
 async def main():
     result = await get_live()
     print(result)
-    await stream_node('481980', envelope_format="msgpack")
+    await stream_node("481980", envelope_format="msgpack")
+
 
 asyncio.run(main())

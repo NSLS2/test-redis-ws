@@ -4,21 +4,29 @@ import numpy as np
 import uvicorn
 from pydantic_settings import BaseSettings
 from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect
-from pydantic import BaseModel
 from datetime import datetime
 import msgpack
 import asyncio
 from typing import Optional
 import socket
+from contextlib import asynccontextmanager
+
 
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     ttl: int = 60 * 60  # 1 hour
 
+
 def build_app(settings: Settings):
     redis_client = redis.from_url(settings.redis_url)
 
-    app = FastAPI()
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        yield
+        # Shutdown - close Redis connection
+        await redis_client.aclose()
+
+    app = FastAPI(lifespan=lifespan)
 
     @app.middleware("http")
     async def add_server_header(request: Request, call_next):
@@ -27,21 +35,21 @@ def build_app(settings: Settings):
         return response
 
     @app.post("/upload")
-    def create():
+    async def create():
         "Declare a new dataset."
 
         # Generate a rnadom node_id.
         # (In Tiled, PostgreSQL will give us a unique ID.)
         node_id = np.random.randint(1_000_000)
         # Allocate a counter for this node_id.
-        redis_client.setnx(f"seq_num:{node_id}", 0)
+        await redis_client.setnx(f"seq_num:{node_id}", 0)
         return {"node_id": node_id}
 
     @app.delete("/upload/{node_id}", status_code=204)
-    def close(node_id):
+    async def close(node_id):
         "Declare that a dataset is done streaming."
 
-        redis_client.delete(f"seq_num:{node_id}")
+        await redis_client.delete(f"seq_num:{node_id}")
         # TODO: Shorten TTL on all extant data for this node.
         return None
 
@@ -63,7 +71,6 @@ def build_app(settings: Settings):
         # Cache data in Redis with a TTL, and publish
         # a notification about it.
         pipeline = redis_client.pipeline()
-        print(f"Setting pipeline metadata: {json.dumps(metadata).encode("utf-8")}")
         pipeline.hset(
             f"data:{node_id}:{seq_num}",
             mapping={
@@ -80,17 +87,13 @@ def build_app(settings: Settings):
 
     @app.post("/close/{node_id}")
     async def close_connection(node_id: str, request: Request):
-
         # Parse the JSON body
         body = await request.json()
         headers = request.headers
 
         reason = body.get("reason", None)
 
-        metadata = {
-            "timestamp": datetime.now().isoformat(),
-            "reason": reason
-        }
+        metadata = {"timestamp": datetime.now().isoformat(), "reason": reason}
         metadata.setdefault("Content-Type", headers.get("Content-Type"))
         # Increment the counter for this node.
         seq_num = await redis_client.incr(f"seq_num:{node_id}")
@@ -98,7 +101,6 @@ def build_app(settings: Settings):
         # Cache data in Redis with a TTL, and publish
         # a notification about it.
         pipeline = redis_client.pipeline()
-        print(f"Setting pipeline metadata: {json.dumps(metadata).encode("utf-8")}")
         pipeline.hset(
             f"data:{node_id}:{seq_num}",
             mapping={
@@ -112,19 +114,21 @@ def build_app(settings: Settings):
 
         return {
             "status": f"Connection for node {node_id} is now closed.",
-            "reason": reason
+            "reason": reason,
         }
 
-
     @app.websocket("/stream/single/{node_id}")  # one-way communcation
-    async def websocket_endpoint(websocket: WebSocket,
-                                 node_id: str,
-                                 envelope_format: str = "json",
-                                 seq_num: Optional[int] = None):
-        await websocket.accept(headers=[
-            (b"x-server-host", socket.gethostname().encode())
-        ])
+    async def websocket_endpoint(
+        websocket: WebSocket,
+        node_id: str,
+        envelope_format: str = "json",
+        seq_num: Optional[int] = None,
+    ):
+        await websocket.accept(
+            headers=[(b"x-server-host", socket.gethostname().encode())]
+        )
         end_stream = asyncio.Event()
+
         async def stream_data(seq_num):
             key = f"data:{node_id}:{seq_num}"
             payload, metadata = await redis_client.hmget(key, "payload", "metadata")
@@ -132,13 +136,14 @@ def build_app(settings: Settings):
                 return
             try:
                 payload = np.frombuffer(payload, dtype=np.float64).tolist()
-            except Exception as e:
+            except Exception:
                 payload = json.loads(payload)
-            data = { "sequence": seq_num,
-                      "metadata": metadata.decode('utf-8'),
-                      "payload": payload,
-                      "server_host": socket.gethostname()
-                    }
+            data = {
+                "sequence": seq_num,
+                "metadata": metadata.decode("utf-8"),
+                "payload": payload,
+                "server_host": socket.gethostname(),
+            }
             if envelope_format == "msgpack":
                 data = msgpack.packb(data)
                 await websocket.send_bytes(data)
@@ -150,10 +155,11 @@ def build_app(settings: Settings):
 
         # Setup buffer
         stream_buffer = asyncio.Queue()
+
         async def buffer_live_events():
             pubsub = redis_client.pubsub()
-            await pubsub.subscribe(f"notify:{node_id}")
             try:
+                await pubsub.subscribe(f"notify:{node_id}")
                 async for message in pubsub.listen():
                     if message.get("type") == "message":
                         try:
@@ -161,34 +167,52 @@ def build_app(settings: Settings):
                             await stream_buffer.put(live_seq)
                         except Exception as e:
                             print(f"Error parsing live message: {e}")
+                            break  # Exit loop on error
+            except asyncio.CancelledError:
+                # Task was cancelled by live_task.cancel() - don't re-raise, just clean up
+                pass
             except Exception as e:
                 print(f"Live subscription error: {e}")
             finally:
                 await pubsub.unsubscribe(f"notify:{node_id}")
                 await pubsub.aclose()
+
         live_task = asyncio.create_task(buffer_live_events())
 
         if seq_num is not None:
             current_seq = await redis_client.get(f"seq_num:{node_id}")
             current_seq = int(current_seq) if current_seq is not None else 0
-            print("Replaying old data...")
+            # Replay old data
             for s in range(seq_num, current_seq + 1):
                 await stream_data(s)
         # New data
         try:
             while not end_stream.is_set():
-                live_seq = await stream_buffer.get()
-                await stream_data(live_seq)
+                try:
+                    async with asyncio.timeout(1.0):
+                        live_seq = await stream_buffer.get()
+                except asyncio.TimeoutError:
+                    # No data for 1 second - continue waiting
+                    # Client disconnect will be detected on next send operation
+                    continue
+                else:
+                    await stream_data(live_seq)
             else:
                 await websocket.close(code=1000, reason="Producer ended stream")
         except WebSocketDisconnect:
             print(f"Client disconnected from node {node_id}")
         finally:
+            # Properly cancel and wait for the live task to cleanup with timeout
             live_task.cancel()
+            try:
+                # Wait for task to finish cleanup (unsubscribe, close pubsub connection)
+                # before allowing WebSocket handler to exit
+                await asyncio.wait_for(live_task, timeout=2.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass  # Task cleanup completed or timed out
 
     @app.get("/stream/live")
     async def list_live_streams():
-
         nodes = await redis_client.keys("seq_num:*")
         return [node.decode("utf-8").split(":")[1] for node in nodes]
 
