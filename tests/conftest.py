@@ -15,8 +15,8 @@ async def http_client():
         try:
             yield client
         finally:
-            # Workaround for httpx-ws issue: ASGIWebSocketTransport doesn't properly
-            # clean up its exit_stack when the client closes, causing test fixtures
-            # to hang. Manually clearing the exit_stack prevents this issue.
+            # Workaround for httpx-ws issue: https://github.com/frankie567/httpx-ws/discussions/79
+            # ASGIWebSocketTransport doesn't properly clean up its exit_stack when the client closes,
+            # causing "Attempted to exit cancel scope in different task" errors
             if hasattr(transport, "exit_stack") and transport.exit_stack:
                 transport.exit_stack = None

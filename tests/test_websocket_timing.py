@@ -91,8 +91,8 @@ async def test_subscribe_after_first_update(http_client):
 @pytest.mark.asyncio
 async def test_subscribe_after_first_update_from_beginning(http_client):
     """Client that subscribes after first update but requests from seq_num=0 sees all updates.
-    
-    Note: seq_num starts at 1 for the first data point. seq_num=0 means "start as far back 
+
+    Note: seq_num starts at 1 for the first data point. seq_num=0 means "start as far back
     as you have" (similar to Bluesky social)
     """
     # Create node
