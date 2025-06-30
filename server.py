@@ -192,12 +192,9 @@ def build_app(settings: Settings):
                     async with asyncio.timeout(1.0):
                         live_seq = await stream_buffer.get()
                 except asyncio.TimeoutError:
-                    # No data for 1 second - check if client is still connected
-                    try:
-                        await websocket.ping()
-                    except WebSocketDisconnect:
-                        print(f"Client disconnected from node {node_id}")
-                        break
+                    # No data for 1 second - continue waiting
+                    # Client disconnect will be detected on next send operation
+                    continue
                 else:
                     await stream_data(live_seq)
             else:
@@ -209,10 +206,8 @@ def build_app(settings: Settings):
             live_task.cancel()
             try:
                 await asyncio.wait_for(live_task, timeout=2.0)
-            except asyncio.TimeoutError:
-                pass  # Task didn't finish in time
-            except asyncio.CancelledError:
-                pass  # Expected when cancelling
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass  # Task cleanup completed or timed out
 
     @app.get("/stream/live")
     async def list_live_streams():
