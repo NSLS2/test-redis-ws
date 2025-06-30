@@ -169,7 +169,7 @@ def build_app(settings: Settings):
                             print(f"Error parsing live message: {e}")
                             break  # Exit loop on error
             except asyncio.CancelledError:
-                # Don't re-raise, just clean up
+                # Task was cancelled by live_task.cancel() - don't re-raise, just clean up
                 pass
             except Exception as e:
                 print(f"Live subscription error: {e}")
@@ -205,6 +205,8 @@ def build_app(settings: Settings):
             # Properly cancel and wait for the live task to cleanup with timeout
             live_task.cancel()
             try:
+                # Wait for task to finish cleanup (unsubscribe, close pubsub connection)
+                # before allowing WebSocket handler to exit
                 await asyncio.wait_for(live_task, timeout=2.0)
             except (asyncio.TimeoutError, asyncio.CancelledError):
                 pass  # Task cleanup completed or timed out
