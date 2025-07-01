@@ -1,9 +1,6 @@
 import pytest
 import pytest_asyncio
 import httpx
-import asyncio
-import socket
-import uvicorn
 from httpx_ws.transport import ASGIWebSocketTransport
 from starlette.testclient import TestClient
 from server import build_app, Settings
