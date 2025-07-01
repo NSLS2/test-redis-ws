@@ -25,6 +25,7 @@ def test_negative_node_id_in_delete(client):
 
 def test_malformed_json_in_close_endpoint(client):
     """Server crashes with malformed JSON in /close endpoint."""
+    # TODO: Fix JSONDecodeError crash in server.py:91 - add proper error handling
     response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
@@ -40,6 +41,7 @@ def test_malformed_json_in_close_endpoint(client):
 
 def test_missing_json_body_in_close_endpoint(client):
     """Server crashes when /close endpoint receives no JSON body."""
+    # TODO: Fix JSONDecodeError crash in server.py:91 - add proper error handling
     response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
@@ -52,6 +54,7 @@ def test_missing_json_body_in_close_endpoint(client):
 @pytest.mark.timeout(5)
 def test_upload_invalid_binary_data_with_websocket(client):
     """Test server behavior when trying to interpret non-numeric binary data as float64."""
+    # TODO: Test hangs on websocket.receive_text() - investigate WebSocket data processing
     # Create a node
     response = client.post("/upload")
     assert response.status_code == 200
@@ -79,6 +82,7 @@ def test_upload_invalid_binary_data_with_websocket(client):
 @pytest.mark.timeout(5)
 def test_upload_empty_payload_with_websocket(client):
     """Server behavior with zero-length binary data may be undefined."""
+    # TODO: Test hangs on websocket.receive_text() - investigate empty data handling
     # Create a node
     response = client.post("/upload")
     assert response.status_code == 200
@@ -115,6 +119,7 @@ def test_websocket_invalid_envelope_format(client):
 
 def test_websocket_invalid_seq_num_string(client):
     """Server properly validates seq_num parameter and disconnects."""
+    # TODO: Server throws WebSocketDisconnect instead of graceful error response
     response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
@@ -145,6 +150,7 @@ def test_websocket_negative_seq_num(client):
 @pytest.mark.timeout(5)
 def test_delete_node_during_websocket_stream(client):
     """Race condition: deleting node while WebSocket is streaming."""
+    # TODO: Test hangs after node deletion - potential race condition in WebSocket cleanup
     # Create a node and add data
     response = client.post("/upload")
     assert response.status_code == 200
