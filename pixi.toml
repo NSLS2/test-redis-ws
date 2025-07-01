@@ -20,11 +20,9 @@ pydantic = "*"
 httpx = "*"
 uvicorn = "*"
 httpx-ws = "*"
-websockets = "*"
 locust = "*"
 ruff = "*"
 pytest = "*"
-pytest-asyncio = "*"
 
 [pypi-dependencies]
 msgpack = "*"
