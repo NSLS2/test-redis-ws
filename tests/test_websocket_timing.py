@@ -1,25 +1,21 @@
 import json
 import numpy as np
-import pytest
-import asyncio
-from httpx_ws import aconnect_ws
 
 
-@pytest.mark.asyncio
-async def test_subscribe_immediately_after_creation(http_client):
+def test_subscribe_immediately_after_creation_websockets(client):
     """Client that subscribes immediately after node creation sees all updates in order."""
     # Create node
-    response = await http_client.post("/upload")
+    response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
 
     # Connect WebSocket immediately
-    async with aconnect_ws(f"/stream/single/{node_id}", http_client) as ws:
+    with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
         # Write updates
         updates = []
         for i in range(1, 4):
             data = np.array([float(i), float(i + 1), float(i + 2)])
-            await http_client.post(
+            client.post(
                 f"/upload/{node_id}",
                 content=data.tobytes(),
                 headers={"Content-Type": "application/octet-stream"},
@@ -29,7 +25,8 @@ async def test_subscribe_immediately_after_creation(http_client):
         # Receive all updates
         received = []
         for _ in range(3):
-            msg = json.loads(await asyncio.wait_for(ws.receive_text(), timeout=2.0))
+            msg_text = websocket.receive_text()
+            msg = json.loads(msg_text)
             received.append(msg)
 
         # Verify all updates received in order
@@ -39,32 +36,31 @@ async def test_subscribe_immediately_after_creation(http_client):
             assert msg["payload"] == expected_data
 
     # Cleanup
-    await http_client.delete(f"/upload/{node_id}")
+    client.delete(f"/upload/{node_id}")
 
 
-@pytest.mark.asyncio
-async def test_subscribe_after_first_update(http_client):
+def test_subscribe_after_first_update_websockets(client):
     """Client that subscribes after first update sees only subsequent updates."""
     # Create node
-    response = await http_client.post("/upload")
+    response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
 
     # Write first update before subscribing
     first_data = np.array([1.0, 2.0, 3.0])
-    await http_client.post(
+    client.post(
         f"/upload/{node_id}",
         content=first_data.tobytes(),
         headers={"Content-Type": "application/octet-stream"},
     )
 
     # Connect WebSocket after first update
-    async with aconnect_ws(f"/stream/single/{node_id}", http_client) as ws:
+    with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
         # Write more updates
         updates = []
         for i in range(2, 4):
             data = np.array([float(i), float(i + 1), float(i + 2)])
-            await http_client.post(
+            client.post(
                 f"/upload/{node_id}",
                 content=data.tobytes(),
                 headers={"Content-Type": "application/octet-stream"},
@@ -74,7 +70,8 @@ async def test_subscribe_after_first_update(http_client):
         # Should only receive the 2 new updates
         received = []
         for _ in range(2):
-            msg = json.loads(await asyncio.wait_for(ws.receive_text(), timeout=2.0))
+            msg_text = websocket.receive_text()
+            msg = json.loads(msg_text)
             received.append(msg)
 
         # Verify only new updates received
@@ -85,35 +82,33 @@ async def test_subscribe_after_first_update(http_client):
         assert received[1]["payload"] == [3.0, 4.0, 5.0]
 
     # Cleanup
-    await http_client.delete(f"/upload/{node_id}")
+    client.delete(f"/upload/{node_id}")
 
 
-@pytest.mark.asyncio
-async def test_subscribe_after_first_update_from_beginning(http_client):
+def test_subscribe_after_first_update_from_beginning_websockets(client):
     """Client that subscribes after first update but requests from seq_num=0 sees all updates.
 
     Note: seq_num starts at 1 for the first data point. seq_num=0 means "start as far back
     as you have" (similar to Bluesky social)
     """
     # Create node
-    response = await http_client.post("/upload")
+    response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
 
     # Write first update before subscribing
     first_data = np.array([1.0, 2.0, 3.0])
-    await http_client.post(
+    client.post(
         f"/upload/{node_id}",
         content=first_data.tobytes(),
         headers={"Content-Type": "application/octet-stream"},
     )
 
     # Connect WebSocket requesting from beginning
-    async with aconnect_ws(f"/stream/single/{node_id}?seq_num=0", http_client) as ws:
+    with client.websocket_connect(f"/stream/single/{node_id}?seq_num=0") as websocket:
         # First, should receive the historical update
-        historical_msg = json.loads(
-            await asyncio.wait_for(ws.receive_text(), timeout=2.0)
-        )
+        historical_msg_text = websocket.receive_text()
+        historical_msg = json.loads(historical_msg_text)
         assert historical_msg["sequence"] == 1
         assert historical_msg["payload"] == [1.0, 2.0, 3.0]
 
@@ -121,7 +116,7 @@ async def test_subscribe_after_first_update_from_beginning(http_client):
         updates = [[1.0, 2.0, 3.0]]  # Already have first one
         for i in range(2, 4):
             data = np.array([float(i), float(i + 1), float(i + 2)])
-            await http_client.post(
+            client.post(
                 f"/upload/{node_id}",
                 content=data.tobytes(),
                 headers={"Content-Type": "application/octet-stream"},
@@ -130,9 +125,10 @@ async def test_subscribe_after_first_update_from_beginning(http_client):
 
         # Receive the new updates
         for i in range(2, 4):
-            msg = json.loads(await asyncio.wait_for(ws.receive_text(), timeout=2.0))
+            msg_text = websocket.receive_text()
+            msg = json.loads(msg_text)
             assert msg["sequence"] == i
             assert msg["payload"] == updates[i - 1]
 
     # Cleanup
-    await http_client.delete(f"/upload/{node_id}")
+    client.delete(f"/upload/{node_id}")
