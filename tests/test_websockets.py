@@ -1,28 +1,21 @@
 import json
 import numpy as np
-import pytest
-import asyncio
-from websockets.asyncio.client import connect
 
 
-@pytest.mark.asyncio
-async def test_subscribe_immediately_after_creation_websockets(websocket_server):
+def test_subscribe_immediately_after_creation_websockets(client):
     """Client that subscribes immediately after node creation sees all updates in order."""
-    client = websocket_server["client"]
-    base_url = websocket_server["base_url"]
-    
     # Create node
-    response = await client.post("/upload")
+    response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
 
     # Connect WebSocket immediately
-    async with connect(f"{base_url}/stream/single/{node_id}") as websocket:
+    with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
         # Write updates
         updates = []
         for i in range(1, 4):
             data = np.array([float(i), float(i + 1), float(i + 2)])
-            await client.post(
+            client.post(
                 f"/upload/{node_id}",
                 content=data.tobytes(),
                 headers={"Content-Type": "application/octet-stream"},
@@ -32,7 +25,7 @@ async def test_subscribe_immediately_after_creation_websockets(websocket_server)
         # Receive all updates
         received = []
         for _ in range(3):
-            msg_text = await asyncio.wait_for(websocket.recv(), timeout=2.0)
+            msg_text = websocket.receive_text()
             msg = json.loads(msg_text)
             received.append(msg)
 
@@ -43,35 +36,31 @@ async def test_subscribe_immediately_after_creation_websockets(websocket_server)
             assert msg["payload"] == expected_data
 
     # Cleanup
-    await client.delete(f"/upload/{node_id}")
+    client.delete(f"/upload/{node_id}")
 
 
-@pytest.mark.asyncio
-async def test_subscribe_after_first_update_websockets(websocket_server):
+def test_subscribe_after_first_update_websockets(client):
     """Client that subscribes after first update sees only subsequent updates."""
-    client = websocket_server["client"]
-    base_url = websocket_server["base_url"]
-    
     # Create node
-    response = await client.post("/upload")
+    response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
 
     # Write first update before subscribing
     first_data = np.array([1.0, 2.0, 3.0])
-    await client.post(
+    client.post(
         f"/upload/{node_id}",
         content=first_data.tobytes(),
         headers={"Content-Type": "application/octet-stream"},
     )
 
     # Connect WebSocket after first update
-    async with connect(f"{base_url}/stream/single/{node_id}") as websocket:
+    with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
         # Write more updates
         updates = []
         for i in range(2, 4):
             data = np.array([float(i), float(i + 1), float(i + 2)])
-            await client.post(
+            client.post(
                 f"/upload/{node_id}",
                 content=data.tobytes(),
                 headers={"Content-Type": "application/octet-stream"},
@@ -81,7 +70,7 @@ async def test_subscribe_after_first_update_websockets(websocket_server):
         # Should only receive the 2 new updates
         received = []
         for _ in range(2):
-            msg_text = await asyncio.wait_for(websocket.recv(), timeout=2.0)
+            msg_text = websocket.receive_text()
             msg = json.loads(msg_text)
             received.append(msg)
 
@@ -93,36 +82,32 @@ async def test_subscribe_after_first_update_websockets(websocket_server):
         assert received[1]["payload"] == [3.0, 4.0, 5.0]
 
     # Cleanup
-    await client.delete(f"/upload/{node_id}")
+    client.delete(f"/upload/{node_id}")
 
 
-@pytest.mark.asyncio
-async def test_subscribe_after_first_update_from_beginning_websockets(websocket_server):
+def test_subscribe_after_first_update_from_beginning_websockets(client):
     """Client that subscribes after first update but requests from seq_num=0 sees all updates.
 
     Note: seq_num starts at 1 for the first data point. seq_num=0 means "start as far back
     as you have" (similar to Bluesky social)
     """
-    client = websocket_server["client"]
-    base_url = websocket_server["base_url"]
-    
     # Create node
-    response = await client.post("/upload")
+    response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
 
     # Write first update before subscribing
     first_data = np.array([1.0, 2.0, 3.0])
-    await client.post(
+    client.post(
         f"/upload/{node_id}",
         content=first_data.tobytes(),
         headers={"Content-Type": "application/octet-stream"},
     )
 
     # Connect WebSocket requesting from beginning
-    async with connect(f"{base_url}/stream/single/{node_id}?seq_num=0") as websocket:
+    with client.websocket_connect(f"/stream/single/{node_id}?seq_num=0") as websocket:
         # First, should receive the historical update
-        historical_msg_text = await asyncio.wait_for(websocket.recv(), timeout=2.0)
+        historical_msg_text = websocket.receive_text()
         historical_msg = json.loads(historical_msg_text)
         assert historical_msg["sequence"] == 1
         assert historical_msg["payload"] == [1.0, 2.0, 3.0]
@@ -131,7 +116,7 @@ async def test_subscribe_after_first_update_from_beginning_websockets(websocket_
         updates = [[1.0, 2.0, 3.0]]  # Already have first one
         for i in range(2, 4):
             data = np.array([float(i), float(i + 1), float(i + 2)])
-            await client.post(
+            client.post(
                 f"/upload/{node_id}",
                 content=data.tobytes(),
                 headers={"Content-Type": "application/octet-stream"},
@@ -140,10 +125,10 @@ async def test_subscribe_after_first_update_from_beginning_websockets(websocket_
 
         # Receive the new updates
         for i in range(2, 4):
-            msg_text = await asyncio.wait_for(websocket.recv(), timeout=2.0)
+            msg_text = websocket.receive_text()
             msg = json.loads(msg_text)
             assert msg["sequence"] == i
             assert msg["payload"] == updates[i - 1]
 
     # Cleanup
-    await client.delete(f"/upload/{node_id}")
+    client.delete(f"/upload/{node_id}")
