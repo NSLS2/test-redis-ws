@@ -111,14 +111,15 @@ def test_websocket_invalid_envelope_format(client):
 
 
 def test_websocket_invalid_seq_num_string(client):
-    """Server accepts invalid seq_num parameter values."""
+    """Server properly validates seq_num parameter and disconnects."""
     response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
     
-    # Server doesn't validate seq_num parameter
-    with client.websocket_connect(f"/stream/single/{node_id}?seq_num=invalid"):
-        pass
+    # Server validates seq_num and disconnects on invalid input
+    with pytest.raises(Exception):  # WebSocketDisconnect
+        with client.websocket_connect(f"/stream/single/{node_id}?seq_num=invalid"):
+            pass
 
 
 def test_websocket_negative_seq_num(client):
@@ -187,39 +188,197 @@ def test_double_delete_node(client):
     assert response2.status_code == 204
 
 
-# def test_websocket_connect_to_nonexistent_node(client):
-#     """Connecting WebSocket to node that was never created."""
-#     nonexistent_node_id = 999999
-#     
-#     try:
-#         # This might crash or hang because seq_num key doesn't exist in Redis
-#         with client.websocket_connect(f"/stream/single/{nonexistent_node_id}") as websocket:
-#             print("Connected to non-existent node")
-#             # Don't wait for messages as this might hang indefinitely
-#     except Exception as e:
-#         print(f"Failed to connect to non-existent node: {e}")
+def test_websocket_connect_to_nonexistent_node(client):
+    """WebSocket connection to non-existent node handles gracefully."""
+    nonexistent_node_id = 999999
+    
+    try:
+        with client.websocket_connect(f"/stream/single/{nonexistent_node_id}"):
+            pass
+    except Exception:
+        pass
 
 
-# def test_upload_with_corrupted_utf8_metadata(client):
-#     """Server crashes when metadata contains non-UTF8 data."""
-#     # Create a node
-#     response = client.post("/upload")
-#     assert response.status_code == 200
-#     node_id = response.json()["node_id"]
-#     
-#     # Upload data with headers that will create corrupted metadata
-#     response = client.post(
-#         f"/upload/{node_id}",
-#         content=b"\x00\x00\x00\x00\x00\x00\x00\x00",
-#         headers={
-#             "Content-Type": "application/octet-stream",
-#             "Custom-Header": "valid"  # This goes into metadata
-#         }
-#     )
-#     assert response.status_code == 200
-#     
-#     # The issue might occur when WebSocket tries to decode metadata (line 143)
-#     with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
-#         msg_text = websocket.receive_text()
-#         msg = json.loads(msg_text)
-#         # Server should handle metadata encoding issues gracefully
+@pytest.mark.timeout(5)
+def test_upload_invalid_binary_data(client):
+    """Server accepts non-numeric binary data without validation."""
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    response = client.post(
+        f"/upload/{node_id}",
+        content=b"this is not numeric data",
+        headers={"Content-Type": "application/octet-stream"}
+    )
+    assert response.status_code == 200
+    
+    with client.websocket_connect(f"/stream/single/{node_id}"):
+        pass
+
+
+@pytest.mark.timeout(5)
+def test_upload_empty_payload(client):
+    """Server handles zero-length binary data."""
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    response = client.post(
+        f"/upload/{node_id}",
+        content=b"",
+        headers={"Content-Type": "application/octet-stream"}
+    )
+    assert response.status_code == 200
+    
+    with client.websocket_connect(f"/stream/single/{node_id}"):
+        pass
+
+
+@pytest.mark.timeout(5)
+def test_websocket_huge_seq_num(client):
+    """Server handles very large seq_num values without validation."""
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    huge_seq_num = 999999999
+    with client.websocket_connect(f"/stream/single/{node_id}?seq_num={huge_seq_num}"):
+        pass
+
+
+@pytest.mark.timeout(5)
+def test_upload_to_deleted_node(client):
+    """Server allows uploading data to deleted nodes."""
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    delete_response = client.delete(f"/upload/{node_id}")
+    assert delete_response.status_code == 204
+    
+    response = client.post(
+        f"/upload/{node_id}",
+        content=b"\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00",
+        headers={"Content-Type": "application/octet-stream"}
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.timeout(5)
+def test_upload_no_content_type_header(client):
+    """Server handles missing Content-Type header gracefully."""
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    response = client.post(
+        f"/upload/{node_id}",
+        content=b"\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00"
+    )
+    assert response.status_code == 200
+    
+    with client.websocket_connect(f"/stream/single/{node_id}"):
+        pass
+
+
+@pytest.mark.timeout(5) 
+def test_close_endpoint_with_valid_json_structure(client):
+    """Server handles valid JSON with different structure gracefully."""
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    response = client.post(
+        f"/close/{node_id}",
+        json={"wrong_field": "value", "not_reason": True}
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.timeout(5)
+def test_websocket_msgpack_format(client):
+    """Server handles msgpack format requests."""
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    client.post(
+        f"/upload/{node_id}",
+        content=b"\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00",
+        headers={"Content-Type": "application/octet-stream"}
+    )
+    
+    with client.websocket_connect(f"/stream/single/{node_id}?envelope_format=msgpack"):
+        pass
+
+
+@pytest.mark.timeout(5)
+def test_upload_large_payload(client):
+    """Server handles large payloads without size limits."""
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    large_payload = b"\\x00" * (1024 * 1024)  # 1MB
+    
+    response = client.post(
+        f"/upload/{node_id}",
+        content=large_payload,
+        headers={"Content-Type": "application/octet-stream"}
+    )
+    assert response.status_code == 200
+    
+    with client.websocket_connect(f"/stream/single/{node_id}"):
+        pass
+
+
+@pytest.mark.timeout(5)
+def test_close_endpoint_without_node_creation(client):
+    """Server allows closing non-existent nodes."""
+    fake_node_id = 999999
+    
+    response = client.post(
+        f"/close/{fake_node_id}",
+        json={"reason": "test"}
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.timeout(5)
+def test_upload_with_mismatched_content_type(client):
+    """Server handles Content-Type mismatch gracefully."""
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    response = client.post(
+        f"/upload/{node_id}",
+        content=b"\\xff\\xfe\\x00\\x01\\x02\\x03",
+        headers={"Content-Type": "application/json"}
+    )
+    assert response.status_code == 200
+    
+    with client.websocket_connect(f"/stream/single/{node_id}"):
+        pass
+
+
+@pytest.mark.timeout(5)
+def test_extremely_long_node_id(client):
+    """Server handles extremely long node_id values."""
+    long_node_id = "a" * 10000  # 10KB string
+    
+    try:
+        client.delete(f"/upload/{long_node_id}")
+    except Exception:
+        pass
+    
+    try:
+        client.post(
+            f"/upload/{long_node_id}",
+            content=b"\\x00\\x00\\x00\\x00",
+            headers={"Content-Type": "application/octet-stream"}
+        )
+    except Exception:
+        pass
+

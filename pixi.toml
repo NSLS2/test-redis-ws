@@ -23,6 +23,7 @@ locust = "*"
 ruff = "*"
 pytest = "*"
 websockets = "*"
+pytest-timeout = ">=2.4.0,<3"
 
 [pypi-dependencies]
 msgpack = "*"
