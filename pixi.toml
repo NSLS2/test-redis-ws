@@ -22,6 +22,7 @@ uvicorn = "*"
 locust = "*"
 ruff = "*"
 pytest = "*"
+websockets = "*"
 
 [pypi-dependencies]
 msgpack = "*"
