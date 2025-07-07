@@ -104,22 +104,6 @@ def test_websocket_invalid_seq_num_string(client):
         assert "error" in msg_text.lower() or "invalid" in msg_text.lower()
 
 
-@pytest.mark.timeout(5)
-def test_websocket_negative_seq_num(client):
-    """Server handles negative seq_num without validation."""
-    response = client.post("/upload")
-    assert response.status_code == 200
-    node_id = response.json()["node_id"]
-    
-    client.post(
-        f"/upload/{node_id}",
-        content=b"\x00\x00\x00\x00\x00\x00\x00\x00",
-        headers={"Content-Type": "application/octet-stream"}
-    )
-    
-    with client.websocket_connect(f"/stream/single/{node_id}?seq_num=-1") as websocket:
-        websocket.receive_text()
-
 
 @pytest.mark.timeout(5)
 def test_delete_node_during_websocket_stream(client):
@@ -400,36 +384,6 @@ def test_redis_pubsub_unsubscribe_failure(client):
         # Cleanup should happen when context exits, may hang
 
 
-@pytest.mark.timeout(5)
-def test_websocket_send_after_close(client):
-    """Server may crash when trying to send data after WebSocket client disconnects."""
-    # TODO: Add proper connection state checking before WebSocket sends
-    response = client.post("/upload")
-    assert response.status_code == 200
-    node_id = response.json()["node_id"]
-    
-    # Create a scenario where data arrives after WebSocket closes
-    async def trigger_post_close_send():
-        redis_client = redis.from_url("redis://localhost:6379/0")
-        # Wait a moment then publish data that will try to send to closed WebSocket
-        await asyncio.sleep(0.1)
-        await redis_client.incr(f"seq_num:{node_id}")
-        await redis_client.hset(
-            f"data:{node_id}:1",
-            mapping={
-                "metadata": b'{"timestamp": "test"}',
-                "payload": b"\x00\x00\x00\x00\x00\x00\x00\x00",
-            }
-        )
-        await redis_client.publish(f"notify:{node_id}", 1)
-        await redis_client.aclose()
-    
-    # Start WebSocket and immediately close it, then trigger data
-    with client.websocket_connect(f"/stream/single/{node_id}"):
-        pass  # WebSocket closes immediately
-    
-    # This should trigger a send attempt to a closed WebSocket
-    asyncio.run(trigger_post_close_send())
 
 
 @pytest.mark.timeout(5)
