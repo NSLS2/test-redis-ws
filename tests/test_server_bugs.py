@@ -3,36 +3,38 @@ Tests designed to expose bugs, crashes, and incorrect behavior in the server.
 """
 import asyncio
 import json
+import socket
+import struct
 import pytest
 import redis.asyncio as redis
 
 
 def test_malformed_json_in_close_endpoint(client):
-    """Server crashes with malformed JSON in /close endpoint."""
+    """Server should handle malformed JSON in /close endpoint gracefully."""
     # TODO: Fix JSONDecodeError crash in server.py:91 - add proper error handling
     response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
     
-    # This causes JSONDecodeError crash
-    with pytest.raises(Exception):
-        client.post(
-            f"/close/{node_id}",
-            content=b"invalid json {{{",
-            headers={"Content-Type": "application/json"}
-        )
+    # This should not crash - server should handle malformed JSON gracefully
+    response = client.post(
+        f"/close/{node_id}",
+        content=b"invalid json {{{",
+        headers={"Content-Type": "application/json"}
+    )
+    assert response.status_code == 400  # Should return bad request, not crash
 
 
 def test_missing_json_body_in_close_endpoint(client):
-    """Server crashes when /close endpoint receives no JSON body."""
+    """Server should handle missing JSON body in /close endpoint gracefully."""
     # TODO: Fix JSONDecodeError crash in server.py:91 - add proper error handling
     response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
     
-    # This causes JSONDecodeError crash
-    with pytest.raises(Exception):
-        client.post(f"/close/{node_id}")
+    # This should not crash - server should handle missing JSON body gracefully
+    response = client.post(f"/close/{node_id}")
+    assert response.status_code == 400  # Should return bad request, not crash
 
 
 @pytest.mark.timeout(5)
@@ -52,15 +54,13 @@ def test_upload_invalid_binary_data_with_websocket(client):
     )
     assert response.status_code == 200  # Upload succeeds
     
-    # Test WebSocket behavior with invalid binary data
+    # Test WebSocket behavior with invalid binary data - should handle gracefully
     with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
-        try:
-            # This might crash or handle gracefully on line 138: np.frombuffer(payload, dtype=np.float64)
-            websocket.receive_text()
-            # If we get here, server handled the error gracefully
-        except Exception:
-            # Expected behavior - server should handle this gracefully
-            pass
+        # This should not crash - server should handle invalid data gracefully
+        msg_text = websocket.receive_text()
+        msg = json.loads(msg_text)
+        # Should successfully convert invalid data using json.loads fallback
+        assert "payload" in msg
 
 
 @pytest.mark.timeout(5)
@@ -91,15 +91,17 @@ def test_upload_empty_payload_with_websocket(client):
 
 
 def test_websocket_invalid_seq_num_string(client):
-    """Server properly validates seq_num parameter and disconnects."""
+    """Server should handle invalid seq_num parameter gracefully."""
     response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
     
-    # Server validates seq_num and disconnects on invalid input
-    with pytest.raises(Exception):  # WebSocketDisconnect
-        with client.websocket_connect(f"/stream/single/{node_id}?seq_num=invalid"):
-            pass
+    # Server should validate seq_num and return proper error response
+    with client.websocket_connect(f"/stream/single/{node_id}?seq_num=invalid") as websocket:
+        # Should either connect successfully or provide error message
+        # Currently this disconnects abruptly - should handle more gracefully
+        msg_text = websocket.receive_text()
+        assert "error" in msg_text.lower() or "invalid" in msg_text.lower()
 
 
 @pytest.mark.timeout(5)
@@ -213,18 +215,20 @@ def test_memory_exhaustion_with_huge_payload(client):
     
     huge_payload = b"\\x00" * (10 * 1024 * 1024)  # 10MB
     
-    try:
-        response = client.post(
-            f"/upload/{node_id}",
-            content=huge_payload,
-            headers={"Content-Type": "application/octet-stream"}
-        )
-        if response.status_code == 200:
-            # Test if WebSocket can handle 10MB data without crashing
-            with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
-                websocket.receive_text()  # May cause memory issues
-    except Exception:
-        pass  # Expected to fail due to size
+    # Server should handle large payloads gracefully with proper limits
+    response = client.post(
+        f"/upload/{node_id}",
+        content=huge_payload,
+        headers={"Content-Type": "application/octet-stream"}
+    )
+    # Should either accept with size limit or reject with 413 Payload Too Large
+    assert response.status_code in [200, 413]
+    
+    if response.status_code == 200:
+        # If accepted, WebSocket should handle large data without hanging
+        with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
+            msg_text = websocket.receive_text()
+            assert len(msg_text) > 0  # Should receive data without hanging
 
 
 @pytest.mark.timeout(5)
@@ -240,21 +244,23 @@ def test_redis_pipeline_execute_failure_handling(client):
     
     # Upload with very long metadata that might exceed Redis limits
     very_long_header = "x" * 1000000  # 1MB header value
-    try:
-        response = client.post(
-            f"/upload/{node_id}",
-            content=b"\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00",
-            headers={
-                "Content-Type": "application/octet-stream",
-                "Very-Long-Header": very_long_header
-            }
-        )
-        # If this succeeds, test WebSocket behavior
-        if response.status_code == 200:
-            with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
-                websocket.receive_text()
-    except Exception:
-        pass  # May crash due to Redis limits
+    # Server should handle large headers gracefully
+    response = client.post(
+        f"/upload/{node_id}",
+        content=b"\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00",
+        headers={
+            "Content-Type": "application/octet-stream",
+            "Very-Long-Header": very_long_header
+        }
+    )
+    # Should either accept or reject with proper error code
+    assert response.status_code in [200, 413, 431]  # 431 = Request Header Fields Too Large
+    
+    if response.status_code == 200:
+        # If accepted, WebSocket should work without hanging
+        with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
+            msg_text = websocket.receive_text()
+            assert len(msg_text) > 0
 
 
 @pytest.mark.timeout(5)
@@ -272,13 +278,283 @@ def test_concurrent_websocket_connections_same_node(client):
         headers={"Content-Type": "application/octet-stream"}
     )
     
-    # Try to open multiple WebSocket connections simultaneously
+    # Server should handle multiple WebSocket connections gracefully
+    with client.websocket_connect(f"/stream/single/{node_id}") as ws1:
+        with client.websocket_connect(f"/stream/single/{node_id}") as ws2:
+            # Both connections should receive data without race conditions
+            msg1 = ws1.receive_text()
+            msg2 = ws2.receive_text()
+            # Both should receive valid messages
+            assert len(msg1) > 0 and len(msg2) > 0
+            # Both should contain the same data
+            data1 = json.loads(msg1)
+            data2 = json.loads(msg2)
+            assert data1["sequence"] == data2["sequence"]
+
+
+@pytest.mark.timeout(5)
+def test_redis_connection_loss_during_websocket(client):
+    """Server crashes or hangs when Redis becomes unavailable during WebSocket stream."""
+    # TODO: Add proper error handling for Redis connection failures during streaming
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    # Add initial data
+    client.post(
+        f"/upload/{node_id}",
+        content=b"\x00\x00\x00\x00\x00\x00\x00\x00",
+        headers={"Content-Type": "application/octet-stream"}
+    )
+    
+    # Start WebSocket, then simulate Redis failure by corrupting Redis data
+    async def corrupt_redis_data():
+        redis_client = redis.from_url("redis://localhost:6379/0")
+        # Corrupt the seq_num key to simulate Redis failure
+        await redis_client.set(f"seq_num:{node_id}", "invalid_number")
+        # Corrupt notification data
+        await redis_client.publish(f"notify:{node_id}", "invalid_seq")
+        await redis_client.aclose()
+    
+    with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
+        websocket.receive_text()  # Get initial message
+        asyncio.run(corrupt_redis_data())
+        # Try to trigger another upload to cause Redis errors
+        client.post(
+            f"/upload/{node_id}",
+            content=b"\x01\x00\x00\x00\x00\x00\x00\x00",
+            headers={"Content-Type": "application/octet-stream"}
+        )
+        # WebSocket should handle Redis errors gracefully but likely hangs
+
+
+@pytest.mark.timeout(5)
+def test_redis_key_collision_with_concurrent_uploads(client):
+    """Race condition when multiple uploads use same node_id with Redis operations."""
+    # TODO: Fix race conditions in Redis pipeline operations for same node_id
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    # Manually inject data to simulate concurrent access to same keys
+    async def create_key_collision():
+        redis_client = redis.from_url("redis://localhost:6379/0")
+        # Simulate race condition by setting conflicting seq_num values
+        await redis_client.set(f"seq_num:{node_id}", 10)  # Set high value
+        # Add data for seq 5 while seq_num is 10 - inconsistent state
+        await redis_client.hset(
+            f"data:{node_id}:5",
+            mapping={
+                "metadata": b'{"timestamp": "test"}',
+                "payload": b"\x00\x00\x00\x00\x00\x00\x00\x00",
+            }
+        )
+        await redis_client.aclose()
+    
+    asyncio.run(create_key_collision())
+    
+    # Now try normal upload - should cause seq_num inconsistency
+    client.post(
+        f"/upload/{node_id}",
+        content=b"\x01\x00\x00\x00\x00\x00\x00\x00",
+        headers={"Content-Type": "application/octet-stream"}
+    )
+    
+    # WebSocket may hang or crash due to inconsistent Redis state
+    with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
+        websocket.receive_text()
+
+
+@pytest.mark.timeout(5)
+def test_redis_pubsub_unsubscribe_failure(client):
+    """Server hangs when Redis pubsub unsubscribe fails during WebSocket cleanup."""
+    # TODO: Add timeout protection for pubsub cleanup operations
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    # Add data
+    client.post(
+        f"/upload/{node_id}",
+        content=b"\x00\x00\x00\x00\x00\x00\x00\x00",
+        headers={"Content-Type": "application/octet-stream"}
+    )
+    
+    # Create situation where pubsub cleanup might fail
+    async def create_pubsub_interference():
+        redis_client = redis.from_url("redis://localhost:6379/0")
+        # Create lots of active subscriptions to same channel
+        pubsub1 = redis_client.pubsub()
+        pubsub2 = redis_client.pubsub() 
+        await pubsub1.subscribe(f"notify:{node_id}")
+        await pubsub2.subscribe(f"notify:{node_id}")
+        # Don't clean up - leave hanging subscriptions
+        # This simulates a condition that might interfere with cleanup
+        await redis_client.aclose()
+    
+    asyncio.run(create_pubsub_interference())
+    
+    # WebSocket connection might hang during cleanup due to pubsub issues
+    with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
+        websocket.receive_text()
+        # Cleanup should happen when context exits, may hang
+
+
+@pytest.mark.timeout(5)
+def test_websocket_send_after_close(client):
+    """Server may crash when trying to send data after WebSocket client disconnects."""
+    # TODO: Add proper connection state checking before WebSocket sends
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    # Create a scenario where data arrives after WebSocket closes
+    async def trigger_post_close_send():
+        redis_client = redis.from_url("redis://localhost:6379/0")
+        # Wait a moment then publish data that will try to send to closed WebSocket
+        await asyncio.sleep(0.1)
+        await redis_client.incr(f"seq_num:{node_id}")
+        await redis_client.hset(
+            f"data:{node_id}:1",
+            mapping={
+                "metadata": b'{"timestamp": "test"}',
+                "payload": b"\x00\x00\x00\x00\x00\x00\x00\x00",
+            }
+        )
+        await redis_client.publish(f"notify:{node_id}", 1)
+        await redis_client.aclose()
+    
+    # Start WebSocket and immediately close it, then trigger data
+    with client.websocket_connect(f"/stream/single/{node_id}"):
+        pass  # WebSocket closes immediately
+    
+    # This should trigger a send attempt to a closed WebSocket
+    asyncio.run(trigger_post_close_send())
+
+
+@pytest.mark.timeout(5)
+def test_websocket_malformed_headers_injection(client):
+    """Server crashes when WebSocket accept receives malformed headers."""
+    # TODO: Add validation for WebSocket header values  
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    # Try to inject malformed headers that could crash WebSocket accept
+    # This tests the server.py:128 line: await websocket.accept(headers=...)
+    
+    # Simulate environment where hostname is corrupted or very long
+    original_gethostname = socket.gethostname
+    
+    def mock_long_hostname():
+        return "x" * 65536  # Extremely long hostname that might overflow header
+    
+    socket.gethostname = mock_long_hostname
+    
     try:
-        with client.websocket_connect(f"/stream/single/{node_id}") as ws1:
-            with client.websocket_connect(f"/stream/single/{node_id}") as ws2:
-                # Both should receive data, but race conditions might occur
-                ws1.receive_text()
-                ws2.receive_text()
-    except Exception:
-        pass  # May crash due to pub/sub race conditions
+        # Server should handle long hostname gracefully without crashing
+        with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
+            msg_text = websocket.receive_text()
+            # Should receive data successfully even with long hostname
+            assert len(msg_text) > 0
+    finally:
+        socket.gethostname = original_gethostname
+
+
+@pytest.mark.timeout(5)
+def test_websocket_frame_size_limits(client):
+    """Server hangs or crashes with extremely large WebSocket frames."""
+    # TODO: Add frame size limits to prevent buffer overflow attacks
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    # Create huge metadata that will result in massive WebSocket frame
+    async def inject_huge_frame_data():
+        redis_client = redis.from_url("redis://localhost:6379/0")
+        # Create 5MB metadata that will be sent as single WebSocket frame
+        huge_metadata = json.dumps({"data": "x" * (5 * 1024 * 1024)})
+        await redis_client.hset(
+            f"data:{node_id}:1",
+            mapping={
+                "metadata": huge_metadata.encode("utf-8"),
+                "payload": b"\x00\x00\x00\x00\x00\x00\x00\x00",
+            }
+        )
+        await redis_client.set(f"seq_num:{node_id}", 1)
+        await redis_client.aclose()
+    
+    asyncio.run(inject_huge_frame_data())
+    
+    # WebSocket should handle huge frames gracefully but may hang/crash
+    with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
+        websocket.receive_text()  # May cause buffer overflow or hang
+
+
+@pytest.mark.timeout(5)
+def test_numpy_dtype_overflow_with_extreme_values(client):
+    """Server crashes when np.frombuffer encounters values that overflow float64."""
+    # TODO: Add bounds checking for float64 conversion in server.py:138
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    # Create binary data with extreme values that might overflow
+    # Pack extreme float64 values that are at the edge of representation
+    extreme_values = [
+        float('inf'),        # Positive infinity
+        float('-inf'),       # Negative infinity
+        1.7976931348623157e+308,  # Near float64 max
+        -1.7976931348623157e+308, # Near float64 min
+    ]
+    
+    # Pack as binary data
+    extreme_binary = b''.join(struct.pack('d', val) for val in extreme_values)
+    
+    response = client.post(
+        f"/upload/{node_id}",
+        content=extreme_binary,
+        headers={"Content-Type": "application/octet-stream"}
+    )
+    assert response.status_code == 200
+    
+    # np.frombuffer might crash or produce NaN/Inf that breaks JSON serialization
+    with client.websocket_connect(f"/stream/single/{node_id}") as websocket:
+        websocket.receive_text()  # May crash on infinite values in JSON
+
+
+@pytest.mark.timeout(5)
+def test_msgpack_serialization_failure_with_complex_data(client):
+    """Server crashes when msgpack.packb fails with non-serializable data structures."""
+    # TODO: Add error handling for msgpack serialization failures in server.py:148
+    response = client.post("/upload")
+    assert response.status_code == 200
+    node_id = response.json()["node_id"]
+    
+    # Inject data that will create complex nested structures that msgpack can't handle
+    async def inject_complex_data():
+        redis_client = redis.from_url("redis://localhost:6379/0")
+        # Create metadata with circular references or extreme nesting
+        complex_metadata = json.dumps({
+            "nested": {"level" + str(i): "data" for i in range(1000)},  # Deep nesting
+            "special_chars": "\x00\x01\x02\x03\x04\x05",  # Control characters
+            "unicode": "🚀" * 1000,  # Heavy unicode
+        })
+        
+        await redis_client.hset(
+            f"data:{node_id}:1",
+            mapping={
+                "metadata": complex_metadata.encode("utf-8"),
+                "payload": b"\x00\x00\x00\x00\x00\x00\x00\x00",
+            }
+        )
+        await redis_client.set(f"seq_num:{node_id}", 1)
+        await redis_client.aclose()
+    
+    asyncio.run(inject_complex_data())
+    
+    # Request msgpack format - should crash when msgpack.packb fails
+    with client.websocket_connect(f"/stream/single/{node_id}?envelope_format=msgpack") as websocket:
+        websocket.receive_bytes()  # Should trigger msgpack serialization failure
+
 
