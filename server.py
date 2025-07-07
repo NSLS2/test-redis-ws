@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     ttl: int = 60 * 60  # 1 hour
     # Resource limits to prevent memory exhaustion and DoS attacks
+    # Fix for: test_large_data_resource.py::test_large_data_resource_limits
     max_payload_size: int = 16 * 1024 * 1024  # 16MB max payload
     max_header_size: int = 8 * 1024  # 8KB max individual header value
     max_websocket_frame_size: int = 1024 * 1024  # 1MB max WebSocket frame
@@ -66,12 +67,14 @@ def build_app(settings: Settings):
         binary_data = await request.body()
         
         # Check payload size limit to prevent memory exhaustion
+        # Fix for: test_large_data_resource.py::test_large_data_resource_limits (payload test)
         if len(binary_data) > settings.max_payload_size:
             raise HTTPException(status_code=413, detail="Payload too large")
         
         headers = request.headers
         
-        # Check header sizes to prevent header-based DoS attacks  
+        # Check header sizes to prevent header-based DoS attacks
+        # Fix for: test_large_data_resource.py::test_large_data_resource_limits (header test)
         for name, value in headers.items():
             if len(value) > settings.max_header_size:
                 raise HTTPException(status_code=431, detail=f"Header '{name}' too large")
@@ -103,6 +106,7 @@ def build_app(settings: Settings):
     @app.post("/close/{node_id}")
     async def close_connection(node_id: str, request: Request):
         # Parse JSON body with error handling to prevent server crashes
+        # Fix for: test_json_parsing.py::test_json_parsing_errors_in_close_endpoint
         try:
             body = await request.json()
         except (JSONDecodeError, Exception):
@@ -165,6 +169,7 @@ def build_app(settings: Settings):
             }
             
             # Check WebSocket frame size to prevent client hangs and memory issues
+            # Fix for: test_large_data_resource.py::test_large_data_resource_limits (WebSocket frame test)
             if envelope_format == "msgpack":
                 frame_data = msgpack.packb(data)
                 if len(frame_data) > settings.max_websocket_frame_size:
