@@ -110,9 +110,15 @@ def build_app(settings: Settings):
         try:
             body = await request.json()
         except JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid JSON in request body")
+            raise HTTPException(
+                status_code=400, 
+                detail="Request body contains invalid JSON syntax"
+            )
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid JSON in request body")
+            raise HTTPException(
+                status_code=400, 
+                detail="Request body must be valid JSON"
+            )
         
         headers = request.headers
 
