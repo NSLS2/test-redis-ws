@@ -16,8 +16,10 @@ def test_json_parsing_errors_in_close_endpoint(client):
         content=b"invalid json {{{",
         headers={"Content-Type": "application/json"}
     )
-    assert response.status_code == 400  # Should return bad request, not crash
+    assert response.status_code == 400
+    assert "invalid JSON syntax" in response.json()["detail"]
     
     # Test 2: Missing JSON body should not crash  
     response = client.post(f"/close/{node_id}")
-    assert response.status_code == 400  # Should return bad request, not crash
+    assert response.status_code == 400
+    assert "valid JSON" in response.json()["detail"]
