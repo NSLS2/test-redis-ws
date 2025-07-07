@@ -17,10 +17,9 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     ttl: int = 60 * 60  # 1 hour
     # Resource limits to prevent memory exhaustion and DoS attacks
-    # Fix for: test_large_data_resource.py::test_large_data_resource_limits (payload/header limits only)
+    # Fix for: test_large_data_resource.py::test_large_data_resource_limits
     max_payload_size: int = 16 * 1024 * 1024  # 16MB max payload
     max_header_size: int = 8 * 1024  # 8KB max individual header value
-    max_websocket_frame_size: int = 1024 * 1024  # 1MB max WebSocket frame
 
 
 def build_app(settings: Settings):
@@ -175,23 +174,11 @@ def build_app(settings: Settings):
                 "payload": payload,
                 "server_host": socket.gethostname(),
             }
-            
-            # Check WebSocket frame size to prevent client hangs and memory issues
-            # Proactive fix: prevents oversized frames that could hang clients (not currently tested)
             if envelope_format == "msgpack":
-                frame_data = msgpack.packb(data)
-                if len(frame_data) > settings.max_websocket_frame_size:
-                    error_data = {"error": "Frame too large"}
-                    await websocket.send_bytes(msgpack.packb(error_data))
-                    return
-                await websocket.send_bytes(frame_data)
+                data = msgpack.packb(data)
+                await websocket.send_bytes(data)
             else:
-                frame_data = json.dumps(data)
-                if len(frame_data) > settings.max_websocket_frame_size:
-                    error_data = {"error": "Frame too large"}
-                    await websocket.send_text(json.dumps(error_data))
-                    return
-                await websocket.send_text(frame_data)
+                await websocket.send_text(json.dumps(data))
             if payload is None and metadata is not None:
                 # This means that the stream is closed by the producer
                 end_stream.set()
