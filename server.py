@@ -39,6 +39,22 @@ def build_app(settings: Settings):
         response.headers["X-Server-Host"] = socket.gethostname()
         return response
 
+    @app.middleware("http")
+    async def limit_request_size(request: Request, call_next):
+        # Check request body size limit
+        if hasattr(request, "headers"):
+            content_length = request.headers.get("content-length")
+            if content_length and int(content_length) > settings.max_payload_size:
+                raise HTTPException(status_code=413, detail="Payload too large")
+        
+        # Check header sizes
+        for name, value in request.headers.items():
+            if len(value) > settings.max_header_size:
+                raise HTTPException(status_code=431, detail=f"Header '{name}' too large")
+        
+        response = await call_next(request)
+        return response
+
     @app.post("/upload")
     async def create():
         "Declare a new dataset."
@@ -62,21 +78,9 @@ def build_app(settings: Settings):
     async def append(node_id, request: Request):
         "Append data to a dataset."
 
-        # get data from request body with size validation
+        # get data from request body (size limits handled by middleware)
         binary_data = await request.body()
-        
-        # Check payload size limit to prevent memory exhaustion
-        # Fix for: test_large_data_resource.py::test_large_data_resource_limits (payload test)
-        if len(binary_data) > settings.max_payload_size:
-            raise HTTPException(status_code=413, detail="Payload too large")
-        
         headers = request.headers
-        
-        # Check header sizes to prevent header-based DoS attacks
-        # Fix for: test_large_data_resource.py::test_large_data_resource_limits (header test)
-        for name, value in headers.items():
-            if len(value) > settings.max_header_size:
-                raise HTTPException(status_code=431, detail=f"Header '{name}' too large")
         metadata = {
             "timestamp": datetime.now().isoformat(),
         }
