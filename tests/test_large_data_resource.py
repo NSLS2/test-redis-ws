@@ -1,10 +1,7 @@
 """
 Tests for large data handling and resource limit bugs.
 """
-import asyncio
-import json
 import pytest
-import redis.asyncio as redis
 from fastapi import HTTPException
 
 

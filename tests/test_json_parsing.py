@@ -1,7 +1,6 @@
 """
 Tests for JSON parsing error handling bugs in server endpoints.
 """
-import pytest
 
 
 def test_json_parsing_errors_in_close_endpoint(client):
