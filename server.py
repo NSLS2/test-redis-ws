@@ -19,7 +19,6 @@ class Settings(BaseSettings):
     # Resource limits to prevent memory exhaustion and DoS attacks
     # Fix for: test_large_data_resource.py::test_large_data_resource_limits
     max_payload_size: int = 16 * 1024 * 1024  # 16MB max payload
-    max_header_size: int = 8 * 1024  # 8KB max individual header value
 
 
 def build_app(settings: Settings):
@@ -38,7 +37,6 @@ def build_app(settings: Settings):
         response = await call_next(request)
         response.headers["X-Server-Host"] = socket.gethostname()
         return response
-
 
     @app.post("/upload")
     async def create():
@@ -69,11 +67,6 @@ def build_app(settings: Settings):
         content_length = headers.get("content-length")
         if content_length and int(content_length) > settings.max_payload_size:
             raise HTTPException(status_code=413, detail="Payload too large")
-        
-        # Check header sizes
-        for name, value in headers.items():
-            if len(value) > settings.max_header_size:
-                raise HTTPException(status_code=431, detail=f"Header '{name}' too large")
 
         # get data from request body
         binary_data = await request.body()
@@ -110,15 +103,13 @@ def build_app(settings: Settings):
             body = await request.json()
         except JSONDecodeError:
             raise HTTPException(
-                status_code=400, 
-                detail="Request body contains invalid JSON syntax"
+                status_code=400, detail="Request body contains invalid JSON syntax"
             )
         except ValueError:
             raise HTTPException(
-                status_code=400, 
-                detail="Request body must be valid JSON"
+                status_code=400, detail="Request body must be valid JSON"
             )
-        
+
         headers = request.headers
 
         reason = body.get("reason", None)

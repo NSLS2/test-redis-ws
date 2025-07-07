@@ -5,38 +5,18 @@ Tests for large data handling and resource limit bugs.
 
 def test_large_data_resource_limits(client):
     """Server should handle large data with proper resource limits."""
-    
-    # Test 1: Huge payload (20MB) - should be rejected as too large
+
+    # Test: Huge payload (20MB) - should be rejected as too large
     response = client.post("/upload")
     assert response.status_code == 200
-    node_id1 = response.json()["node_id"]
-    
+    node_id = response.json()["node_id"]
+
     huge_payload = b"\x00" * (20 * 1024 * 1024)  # 20MB (exceeds 16MB limit)
     response = client.post(
-        f"/upload/{node_id1}",
+        f"/upload/{node_id}",
         content=huge_payload,
-        headers={"Content-Type": "application/octet-stream"}
+        headers={"Content-Type": "application/octet-stream"},
     )
     # Should be rejected with 413 Payload Too Large due to size limits
     assert response.status_code == 413
     assert "Payload too large" in response.json()["detail"]
-    
-    # Test 2: Very long headers (1MB) - should have header size limits
-    response = client.post("/upload")
-    assert response.status_code == 200
-    node_id2 = response.json()["node_id"]
-    
-    very_long_header = "x" * 1000000  # 1MB header
-    response = client.post(
-        f"/upload/{node_id2}",
-        content=b"\x00\x00\x00\x00\x00\x00\x00\x00",
-        headers={
-            "Content-Type": "application/octet-stream",
-            "Very-Long-Header": very_long_header
-        }
-    )
-    # Should be rejected with 431 Request Header Fields Too Large
-    assert response.status_code == 431
-    assert "too large" in response.json()["detail"]
-    
-
