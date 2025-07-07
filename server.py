@@ -109,8 +109,10 @@ def build_app(settings: Settings):
         # Fix for: test_json_parsing.py::test_json_parsing_errors_in_close_endpoint
         try:
             body = await request.json()
-        except (JSONDecodeError, Exception):
-            raise HTTPException(status_code=400, detail="Invalid or missing JSON in request body")
+        except JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON in request body")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid JSON in request body")
         
         headers = request.headers
 
