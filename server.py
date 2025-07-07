@@ -1,9 +1,10 @@
 import redis.asyncio as redis
 import json
+from json import JSONDecodeError
 import numpy as np
 import uvicorn
 from pydantic_settings import BaseSettings
-from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect, HTTPException
 from datetime import datetime
 import msgpack
 import asyncio
@@ -87,8 +88,12 @@ def build_app(settings: Settings):
 
     @app.post("/close/{node_id}")
     async def close_connection(node_id: str, request: Request):
-        # Parse the JSON body
-        body = await request.json()
+        # Parse JSON body with error handling to prevent server crashes
+        try:
+            body = await request.json()
+        except (JSONDecodeError, Exception):
+            raise HTTPException(status_code=400, detail="Invalid or missing JSON in request body")
+        
         headers = request.headers
 
         reason = body.get("reason", None)
