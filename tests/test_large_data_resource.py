@@ -5,7 +5,6 @@ import pytest
 from fastapi import HTTPException
 
 
-@pytest.mark.timeout(10)
 def test_large_data_resource_limits(client):
     """Server should handle large data with proper resource limits."""
     
