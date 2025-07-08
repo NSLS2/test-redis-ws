@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
 
 def build_app(settings: Settings):
+    # This doesn't connect to the redis, so it will work if redis is down.
     redis_client = redis.from_url(settings.redis_url)
 
     @asynccontextmanager
