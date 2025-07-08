@@ -66,6 +66,7 @@ def build_app(settings: Settings):
         "Append data to a dataset."
 
         # Check request body size limit
+        # Tell good-faith clients that their request is too big.
         # Fix for: test_large_data_resource.py::test_large_data_resource_limits
         headers = request.headers
         content_length = headers.get("content-length")

@@ -5,7 +5,6 @@ Tests for JSON parsing error handling bugs in server endpoints.
 
 def test_json_parsing_errors_in_close_endpoint(client):
     """Server should handle JSON parsing errors in /close endpoint gracefully."""
-    # FIXED: Added proper error handling in server.py:92-95 to prevent JSONDecodeError crashes
     response = client.post("/upload")
     assert response.status_code == 200
     node_id = response.json()["node_id"]
