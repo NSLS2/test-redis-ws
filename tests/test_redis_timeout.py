@@ -37,7 +37,7 @@ def test_redis_command_with_slow_operation():
     start_time = time.time()
     
     # This should timeout, not complete successfully
-    with pytest.raises((redis.TimeoutError, redis.ConnectionError, Exception)):
+    with pytest.raises((redis.TimeoutError)):
         asyncio.run(run_slow_operation())
     
     elapsed_time = time.time() - start_time
@@ -48,5 +48,5 @@ def test_redis_command_with_slow_operation():
     # Clean up
     try:
         asyncio.run(redis_client.aclose())
-    except:
+    except Exception:
         pass
