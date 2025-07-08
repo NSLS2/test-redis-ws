@@ -20,8 +20,6 @@ class CloseRequest(BaseModel):
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     ttl: int = 60 * 60  # 1 hour
-    # Resource limits to prevent memory exhaustion and DoS attacks
-    # Fix for: test_large_data_resource.py::test_large_data_resource_limits
     max_payload_size: int = 16 * 1024 * 1024  # 16MB max payload
 
 
