@@ -1,8 +1,8 @@
 import redis.asyncio as redis
 import json
-from json import JSONDecodeError
 import numpy as np
 import uvicorn
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect, HTTPException
 from datetime import datetime
@@ -11,6 +11,10 @@ import asyncio
 from typing import Optional
 import socket
 from contextlib import asynccontextmanager
+
+
+class CloseRequest(BaseModel):
+    reason: Optional[str] = None
 
 
 class Settings(BaseSettings):
@@ -96,23 +100,11 @@ def build_app(settings: Settings):
     #   @app.websocket("/stream/many")
 
     @app.post("/close/{node_id}")
-    async def close_connection(node_id: str, request: Request):
-        # Parse JSON body with error handling to prevent server crashes
+    async def close_connection(node_id: str, body: CloseRequest, request: Request):
+        # Pydantic automatically handles JSON parsing and validation
         # Fix for: test_json_parsing.py::test_json_parsing_errors_in_close_endpoint
-        try:
-            body = await request.json()
-        except JSONDecodeError:
-            raise HTTPException(
-                status_code=400, detail="Request body contains invalid JSON syntax"
-            )
-        except ValueError:
-            raise HTTPException(
-                status_code=400, detail="Request body must be valid JSON"
-            )
-
         headers = request.headers
-
-        reason = body.get("reason", None)
+        reason = body.reason
 
         metadata = {"timestamp": datetime.now().isoformat(), "reason": reason}
         metadata.setdefault("Content-Type", headers.get("Content-Type"))
