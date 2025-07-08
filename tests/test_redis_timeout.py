@@ -8,15 +8,12 @@ def test_redis_command_with_slow_operation():
     import asyncio
     from server import Settings
     
-    # Create a Redis client with short timeouts
-    settings = Settings(redis_url="redis://localhost:6379/0", ttl=60 * 60)
-    
     # Create Redis client with timeout configuration
+    settings = Settings(redis_url="redis://localhost:6379/0", ttl=60 * 60)
     redis_client = redis.from_url(
         settings.redis_url,
         # Operations will hang indefinitely without this timeout.
         socket_timeout=1.0,  # 1 second timeout
-        socket_connect_timeout=1.0,
         retry_on_timeout=False
     )
     
