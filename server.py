@@ -25,7 +25,6 @@ def build_app(settings: Settings):
         settings.redis_url,
         socket_timeout=settings.socket_timeout,
         socket_connect_timeout=settings.socket_connect_timeout,
-        retry_on_timeout=False
     )
 
     @asynccontextmanager

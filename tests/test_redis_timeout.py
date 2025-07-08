@@ -1,14 +1,12 @@
 import time
-from starlette.testclient import TestClient
 import pytest
-from unittest.mock import patch, MagicMock
 import redis.asyncio as redis
 
 
 def test_redis_command_with_slow_operation():
     """Test that Redis operations timeout when they take too long."""
     import asyncio
-    from server import Settings, build_app
+    from server import Settings
     
     # Create a Redis client with short timeouts
     settings = Settings(redis_url="redis://localhost:6379/0", ttl=60 * 60)
