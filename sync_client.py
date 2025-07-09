@@ -15,15 +15,11 @@ class NodePlaceholder:
             websocket_url += f"&seq_num={seq_num}"
         
         with connect(websocket_url) as websocket:
-            try:
-                while True:
-                    message = websocket.recv()
-                    if isinstance(message, bytes) and self.envelope_format == "msgpack":
-                        yield msgpack.unpackb(message)
-                    else:
-                        yield json.loads(message)
-            except Exception:
-                return
+            for message in websocket:
+                if isinstance(message, bytes) and self.envelope_format == "msgpack":
+                    yield msgpack.unpackb(message)
+                else:
+                    yield json.loads(message)
 
 
 def main():
