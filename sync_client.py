@@ -26,7 +26,8 @@ def main():
     REDIS_WS_API_URL = os.getenv("REDIS_WS_API_URL", "localhost:8000")
     
     node = NodePlaceholder(node_id="481980", envelope_format="msgpack", base_url=REDIS_WS_API_URL)
-    
+   
+    # Client will be in this loop until breaking or the writer closes the connection.   
     for message in node.stream():
         print(f"Received: {message}")
 
