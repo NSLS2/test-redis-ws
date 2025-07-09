@@ -15,10 +15,17 @@ from contextlib import asynccontextmanager
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     ttl: int = 60 * 60  # 1 hour
+    socket_timeout: float = 10.0  # 5 seconds
+    socket_connect_timeout: float = 10.0  # 10 seconds
 
 
 def build_app(settings: Settings):
-    redis_client = redis.from_url(settings.redis_url)
+    # This doesn't connect to the redis, so it will work if redis is down.
+    redis_client = redis.from_url(
+        settings.redis_url,
+        socket_timeout=settings.socket_timeout,
+        socket_connect_timeout=settings.socket_connect_timeout,
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
