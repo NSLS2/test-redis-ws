@@ -9,9 +9,8 @@ def test_redis_command_with_slow_operation():
     from server import Settings
     
     # Create Redis client with timeout configuration
-    settings = Settings(redis_url="redis://localhost:6379/0", ttl=60 * 60)
     redis_client = redis.from_url(
-        settings.redis_url,
+        "redis://localhost:6379/0",
         # Operations will hang indefinitely without this timeout.
         socket_timeout=1.0,  # 1 second timeout
         retry_on_timeout=False
