@@ -13,10 +13,6 @@ import socket
 from contextlib import asynccontextmanager
 
 
-class CloseRequest(BaseModel):
-    reason: Optional[str] = None
-
-
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     ttl: int = 60 * 60  # 1 hour
@@ -99,14 +95,12 @@ def build_app(settings: Settings):
     #   @app.websocket("/stream/many")
 
     @app.post("/close/{node_id}")
-    async def close_connection(node_id: str, body: CloseRequest, request: Request):
-        # Pydantic automatically handles JSON parsing and validation
-        # Fix for: test_json_parsing.py::test_json_parsing_errors_in_close_endpoint
+    async def close_connection(node_id: str, request: Request):
         headers = request.headers
-        reason = body.reason
 
-        metadata = {"timestamp": datetime.now().isoformat(), "reason": reason}
+        metadata = {"timestamp": datetime.now().isoformat()}
         metadata.setdefault("Content-Type", headers.get("Content-Type"))
+        
         # Increment the counter for this node.
         seq_num = await redis_client.incr(f"seq_num:{node_id}")
 
@@ -126,7 +120,6 @@ def build_app(settings: Settings):
 
         return {
             "status": f"Connection for node {node_id} is now closed.",
-            "reason": reason,
         }
 
     @app.websocket("/stream/single/{node_id}")  # one-way communcation
