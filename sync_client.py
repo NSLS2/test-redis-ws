@@ -3,6 +3,8 @@ import json
 import msgpack
 import os
 
+import time
+
 class NodePlaceholder:
     def __init__(self, node_id, envelope_format="json", base_url="localhost:8000"):
         self.node_id = node_id
@@ -27,7 +29,8 @@ def main():
     
     node = NodePlaceholder(node_id="481980", envelope_format="msgpack", base_url=REDIS_WS_API_URL)
    
-    # Client will be in this loop until breaking or the writer closes the connection.   
+    # Client will be in this loop until breaking or the writer 
+    # closes the connection and the client receives outstanding messages.   
     for message in node.stream():
         print(f"Received: {message}")
 
