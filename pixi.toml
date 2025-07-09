@@ -8,6 +8,7 @@ version = "0.1.0"
 [tasks]
 serve = "python server.py"
 stream = "python streaming_client.py"
+sync_client = "python sync_client.py"
 write = "python writing_client.py"
 test = "pytest tests/"
 
