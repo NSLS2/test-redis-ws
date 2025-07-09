@@ -1,13 +1,14 @@
 import os
+import sys
 from locust import HttpUser, task, between, events
 import numpy as np
 import time
-import json
-import msgpack
 import logging
 import httpx
+
+# Add parent directory to path to import sync_client
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sync_client import NodePlaceholder
-import threading
 
 
 class WriterUser(HttpUser):
@@ -61,42 +62,10 @@ class StreamingUser(HttpUser):
         # Use the same node_id as WriterUser
         self.node_id = 481980
         self.envelope_format = "msgpack"  # or "json"
-        self.streaming = True
         
         # Extract host from client base_url
         base_url = self.client.base_url.replace("http://", "").replace("https://", "")
         self.node = NodePlaceholder(str(self.node_id), envelope_format=self.envelope_format, base_url=base_url)
-        
-        # Start streaming in a separate thread
-        self.stream_thread = threading.Thread(target=self.stream_messages)
-        self.stream_thread.daemon = True
-        self.stream_thread.start()
-
-    def on_stop(self):
-        """Stop streaming when user stops"""
-        self.streaming = False
-        if hasattr(self, 'stream_thread'):
-            self.stream_thread.join(timeout=2)
-
-    def stream_messages(self):
-        """Stream messages using sync_client in a separate thread"""
-        try:
-            for message in self.node.stream():
-                if not self.streaming:
-                    break
-                    
-                self.process_message(message)
-                
-        except Exception as e:
-            logging.error(f"Error in streaming: {e}")
-            events.request.fire(
-                request_type="WS",
-                name="stream_connection",
-                response_time=0,
-                response_length=0,
-                exception=e,
-                context={}
-            )
 
     def process_message(self, message):
         """Process websocket messages and measure latency"""
@@ -126,6 +95,20 @@ class StreamingUser(HttpUser):
             logging.error(f"Error processing message: {e}")
 
     @task
-    def keep_alive(self):
-        """Dummy task to keep the user active while listening for messages"""
-        pass
+    def stream_messages(self):
+        """Stream messages using sync_client"""
+        try:
+            for message in self.node.stream():
+                self.process_message(message)
+                break  # Process one message per task execution
+                
+        except Exception as e:
+            logging.error(f"Error in streaming: {e}")
+            events.request.fire(
+                request_type="WS",
+                name="stream_connection",
+                response_time=0,
+                response_length=0,
+                exception=e,
+                context={}
+            )
