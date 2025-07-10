@@ -34,3 +34,4 @@ def test_close_connection_not_found(client):
     response = client.delete(f"/close/{non_existent_node_id}")
     assert response.status_code == 404
     assert response.json()["detail"] == "Node not found"
+

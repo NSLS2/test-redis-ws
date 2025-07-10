@@ -1,6 +1,20 @@
 import json
+import pytest
 import numpy as np
 
+
+def test_websocket_connection_to_non_existent_node(client):
+    """Test websocket connection to non-existent node returns error."""
+    from starlette.websockets import WebSocketDisconnect
+    
+    non_existent_node_id = "definitely_non_existent_websocket_node_99999999"
+    
+    # Try to connect to websocket for non-existent node
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect(f"/stream/single/{non_existent_node_id}") as websocket:
+            # If we get here, the connection was accepted when it shouldn't have been
+            assert False, "Websocket connection should have been rejected"
+    
 
 def test_subscribe_immediately_after_creation_websockets(client):
     """Client that subscribes immediately after node creation sees all updates in order."""
