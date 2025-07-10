@@ -90,8 +90,12 @@ def build_app(settings: Settings):
     async def close_connection(node_id: str, request: Request):
         headers = request.headers
 
-        # -1 key exists, but no ttl.
-        if redis_client.ttl(f"seq_num:{node_id}") != -1:
+        # Check if the node exists before proceeding
+        # -2 means key does not exist, ttl greater than 0 means data is expiring.
+        ttl_result = await redis_client.ttl(f"seq_num:{node_id}")
+        if ttl_result > 0:
+            raise HTTPException(status_code=404, detail=f"Node expiring in {ttl_result} seconds")
+        if ttl_result == -2:
             raise HTTPException(status_code=404, detail="Node not found")
         
         metadata = {"timestamp": datetime.now().isoformat()}
