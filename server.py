@@ -47,14 +47,6 @@ def build_app(settings: Settings):
         await redis_client.setnx(f"seq_num:{node_id}", 0)
         return {"node_id": node_id}
 
-    @app.delete("/upload/{node_id}", status_code=204)
-    async def close(node_id):
-        "Declare that a dataset is done streaming."
-
-        await redis_client.delete(f"seq_num:{node_id}")
-        # TODO: Shorten TTL on all extant data for this node.
-        return None
-
     @app.post("/upload/{node_id}")
     async def append(node_id, request: Request):
         "Append data to a dataset."
@@ -94,10 +86,14 @@ def build_app(settings: Settings):
     # TODO: Implement two-way communication with subscribe, unsubscribe, flow control.
     #   @app.websocket("/stream/many")
 
-    @app.post("/close/{node_id}")
+    @app.delete("/close/{node_id}")
     async def close_connection(node_id: str, request: Request):
         headers = request.headers
 
+        # -1 key exists, but no ttl.
+        if redis_client.ttl(f"seq_num:{node_id}") != -1:
+            raise HTTPException(status_code=404, detail="Node not found")
+        
         metadata = {"timestamp": datetime.now().isoformat()}
         metadata.setdefault("Content-Type", headers.get("Content-Type"))
         
@@ -115,6 +111,7 @@ def build_app(settings: Settings):
             },
         )
         pipeline.expire(f"data:{node_id}:{seq_num}", settings.ttl)
+        pipeline.expire(f"seq_num:{node_id}", settings.ttl)
         pipeline.publish(f"notify:{node_id}", seq_num)
         await pipeline.execute()
 
