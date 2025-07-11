@@ -4,16 +4,20 @@ import numpy as np
 
 
 def test_websocket_connection_to_non_existent_node(client):
-    """Test websocket connection to non-existent node returns error."""
-    from starlette.websockets import WebSocketDisconnect
-    
+    """Test websocket connection to non-existent node returns 404."""
     non_existent_node_id = "definitely_non_existent_websocket_node_99999999"
     
     # Try to connect to websocket for non-existent node
-    with pytest.raises(WebSocketDisconnect) as exc_info:
+    # This should result in an HTTP 404 response during the handshake
+    with pytest.raises(Exception) as exc_info:
         with client.websocket_connect(f"/stream/single/{non_existent_node_id}") as websocket:
             # If we get here, the connection was accepted when it shouldn't have been
             assert False, "Websocket connection should have been rejected"
+    
+    # The exception should be a Response object with 404 status code
+    response = exc_info.value
+    assert hasattr(response, 'status_code'), f"Expected Response object, got: {type(response)}"
+    assert response.status_code == 404, f"Expected 404 status code, got: {response.status_code}"
     
 
 def test_subscribe_immediately_after_creation_websockets(client):

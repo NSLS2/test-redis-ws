@@ -132,8 +132,7 @@ def build_app(settings: Settings):
     ):
         # Check if the node exists before accepting the websocket connection
         if not await redis_client.exists(f"seq_num:{node_id}"):
-            await websocket.close(code=1008, reason="Node not found")
-            return
+            raise HTTPException(status_code=404, detail="Node not found")
         
         await websocket.accept(
             headers=[(b"x-server-host", socket.gethostname().encode())]
