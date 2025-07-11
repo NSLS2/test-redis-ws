@@ -131,7 +131,7 @@ def build_app(settings: Settings):
         envelope_format: str = "json",
         seq_num: Optional[int] = None,
     ):
-        # Check if the node exists before accepting the websocket connection
+        # Check if the node is streamable before accepting the websocket connection
         if not await redis_client.exists(f"seq_num:{node_id}"):
             raise HTTPException(status_code=404, detail="Node not found")
         
