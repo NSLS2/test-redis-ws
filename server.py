@@ -91,10 +91,10 @@ def build_app(settings: Settings):
 
         # Check if the node exists before proceeding
         # -2 means key does not exist, ttl greater than 0 means data is expiring.
-        ttl_result = await redis_client.ttl(f"seq_num:{node_id}")
-        if ttl_result > 0:
-            raise HTTPException(status_code=404, detail=f"Node expiring in {ttl_result} seconds")
-        if ttl_result == -2:
+        node_ttl = await redis_client.ttl(f"seq_num:{node_id}")
+        if node_ttl > 0:
+            raise HTTPException(status_code=404, detail=f"Node expiring in {node_ttl} seconds")
+        if node_ttl == -2:
             raise HTTPException(status_code=404, detail="Node not found")
         
         metadata = {"timestamp": datetime.now().isoformat()}

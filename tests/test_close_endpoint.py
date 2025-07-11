@@ -9,7 +9,7 @@ def test_close_connection_success(client):
     assert response.status_code == 200
     node_id = response.json()["node_id"]
     
-    # Upload some data to ensure the node exists
+    # Upload some data
     response = client.post(
         f"/upload/{node_id}",
         content=b"test data",
