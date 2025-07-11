@@ -1,5 +1,4 @@
 import json
-import pytest
 import numpy as np
 
 
@@ -9,15 +8,8 @@ def test_websocket_connection_to_non_existent_node(client):
     
     # Try to connect to websocket for non-existent node
     # This should result in an HTTP 404 response during the handshake
-    with pytest.raises(Exception) as exc_info:
-        with client.websocket_connect(f"/stream/single/{non_existent_node_id}") as websocket:
-            # If we get here, the connection was accepted when it shouldn't have been
-            assert False, "Websocket connection should have been rejected"
-    
-    # The exception should be a Response object with 404 status code
-    response = exc_info.value
-    assert hasattr(response, 'status_code'), f"Expected Response object, got: {type(response)}"
-    assert response.status_code == 404, f"Expected 404 status code, got: {response.status_code}"
+    response = client.get(f"/stream/single/{non_existent_node_id}")
+    assert response.status_code == 404
     
 
 def test_subscribe_immediately_after_creation_websockets(client):

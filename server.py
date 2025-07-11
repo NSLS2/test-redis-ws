@@ -2,7 +2,6 @@ import redis.asyncio as redis
 import json
 import numpy as np
 import uvicorn
-from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect, HTTPException
 from datetime import datetime
