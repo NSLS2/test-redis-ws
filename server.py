@@ -3,7 +3,7 @@ import json
 import numpy as np
 import uvicorn
 from pydantic_settings import BaseSettings
-from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect, HTTPException
 from datetime import datetime
 import msgpack
 import asyncio
@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     ttl: int = 60 * 60  # 1 hour
+    max_payload_size: int = 16 * 1024 * 1024  # 16MB max payload
 
 
 def build_app(settings: Settings):
@@ -45,21 +46,20 @@ def build_app(settings: Settings):
         await redis_client.setnx(f"seq_num:{node_id}", 0)
         return {"node_id": node_id}
 
-    @app.delete("/upload/{node_id}", status_code=204)
-    async def close(node_id):
-        "Declare that a dataset is done streaming."
-
-        await redis_client.delete(f"seq_num:{node_id}")
-        # TODO: Shorten TTL on all extant data for this node.
-        return None
-
     @app.post("/upload/{node_id}")
     async def append(node_id, request: Request):
         "Append data to a dataset."
 
+        # Check request body size limit
+        # Tell good-faith clients that their request is too big.
+        # Fix for: test_large_data_resource.py::test_large_data_resource_limits
+        headers = request.headers
+        content_length = headers.get("content-length")
+        if content_length and int(content_length) > settings.max_payload_size:
+            raise HTTPException(status_code=413, detail="Payload too large")
+
         # get data from request body
         binary_data = await request.body()
-        headers = request.headers
         metadata = {
             "timestamp": datetime.now().isoformat(),
         }
@@ -85,16 +85,23 @@ def build_app(settings: Settings):
     # TODO: Implement two-way communication with subscribe, unsubscribe, flow control.
     #   @app.websocket("/stream/many")
 
-    @app.post("/close/{node_id}")
+    @app.delete("/close/{node_id}")
     async def close_connection(node_id: str, request: Request):
-        # Parse the JSON body
-        body = await request.json()
         headers = request.headers
 
-        reason = body.get("reason", None)
-
-        metadata = {"timestamp": datetime.now().isoformat(), "reason": reason}
+        # Check the node status.
+        # ttl returns -2 if the key does not exist.
+        # ttl returns -1 if the key exists but has no associated expire.
+        # ttl greater than 0 means that it is marked to expire.
+        node_ttl = await redis_client.ttl(f"seq_num:{node_id}")
+        if node_ttl > 0:
+            raise HTTPException(status_code=404, detail=f"Node expiring in {node_ttl} seconds")
+        if node_ttl == -2:
+            raise HTTPException(status_code=404, detail="Node not found")
+        
+        metadata = {"timestamp": datetime.now().isoformat()}
         metadata.setdefault("Content-Type", headers.get("Content-Type"))
+        
         # Increment the counter for this node.
         seq_num = await redis_client.incr(f"seq_num:{node_id}")
 
@@ -109,12 +116,12 @@ def build_app(settings: Settings):
             },
         )
         pipeline.expire(f"data:{node_id}:{seq_num}", settings.ttl)
+        pipeline.expire(f"seq_num:{node_id}", settings.ttl)
         pipeline.publish(f"notify:{node_id}", seq_num)
         await pipeline.execute()
 
         return {
             "status": f"Connection for node {node_id} is now closed.",
-            "reason": reason,
         }
 
     @app.websocket("/stream/single/{node_id}")  # one-way communcation
@@ -124,6 +131,10 @@ def build_app(settings: Settings):
         envelope_format: str = "json",
         seq_num: Optional[int] = None,
     ):
+        # Check if the node is streamable before accepting the websocket connection
+        if not await redis_client.exists(f"seq_num:{node_id}"):
+            raise HTTPException(status_code=404, detail="Node not found")
+        
         await websocket.accept(
             headers=[(b"x-server-host", socket.gethostname().encode())]
         )

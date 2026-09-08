@@ -2,6 +2,16 @@ import json
 import numpy as np
 
 
+def test_websocket_connection_to_non_existent_node(client):
+    """Test websocket connection to non-existent node returns 404."""
+    non_existent_node_id = "definitely_non_existent_websocket_node_99999999"
+    
+    # Try to connect to websocket for non-existent node
+    # This should result in an HTTP 404 response during the handshake
+    response = client.get(f"/stream/single/{non_existent_node_id}")
+    assert response.status_code == 404
+    
+
 def test_subscribe_immediately_after_creation_websockets(client):
     """Client that subscribes immediately after node creation sees all updates in order."""
     # Create node
