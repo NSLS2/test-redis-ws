@@ -9,7 +9,7 @@
 ### Option 1: Manual Setup
 
 ```sh
-docker run --net=host --rm -v ./redis:/usr/local/etc/redis --name test-redis redis redis-server /usr/local/etc/redis/redis.conf
+docker run --rm -p 6379:6379 -v ./redis:/usr/local/etc/redis --name test-redis redis redis-server /usr/local/etc/redis/redis.conf
 
 pixi run serve
 ```
@@ -48,7 +48,7 @@ for i in {1..20}; do curl -s -D - http://localhost:8000/stream/live 2>/dev/null 
 Before running tests, start Redis:
 
 ```sh
-docker run --net=host --rm -v ./redis:/usr/local/etc/redis --name test-redis redis redis-server /usr/local/etc/redis/redis.conf
+docker run --rm -p 6379:6379 -v ./redis:/usr/local/etc/redis --name test-redis redis redis-server /usr/local/etc/redis/redis.conf
 ```
 
 ### Run the Test Suite
