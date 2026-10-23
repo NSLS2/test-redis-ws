@@ -1,4 +1,5 @@
 [project]
+requires-pixi = ">=0.82.1"
 authors = ["Hiran Wijesinghe <wwijesing1@bnl.gov>"]
 channels = ["conda-forge"]
 name = "test-redis-ws"
